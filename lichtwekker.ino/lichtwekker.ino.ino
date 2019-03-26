@@ -112,9 +112,13 @@ void showAdj(){
 time_t AdjustTime(time_t startval){ //starts from startval and returns adjusted time, shows it on ledstrip while adjusting 
   // TODO: implement
   TimeElements temp;
+ 
+  /* // when minute wraps around, hour gets rounded up or down. Same with minute when second wraps... So lets use breaktime instead...
   temp.Hour=hour(startval);
   temp.Minute=minute(startval);
-  temp.Second=second(startval); // could have used breaktime() fnction but only need these.
+  temp.Second=second(startval); // could have used breaktime() fnction but only need these. Seem
+  */
+  breakTime(startval, temp);
   
   Show=showAdj;
   
