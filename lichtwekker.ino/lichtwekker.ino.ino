@@ -4,7 +4,6 @@
 #include <mTime.h>             // use modified time.h lib. (Uses timer1 interrupt instead of milis -
 //- this breaks arduino built-in servo/pwm, but standard time.h relies on millis() which gets broken by FastLED as that disables interrupts for well over a millisecond)
 
-
 FASTLED_USING_NAMESPACE
 
 #if defined(FASTLED_VERSION) && (FASTLED_VERSION < 3001000)
@@ -60,7 +59,108 @@ uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 void loop()
 {
 
-  Show= shownow;
+  enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL};
+  enum LSTATE {OFF, WW, CW, CWW, RST, EASTERPONG};
+  int light = OFF, state=SHOWTIME;
+  time_t compare;
+
+
+  switch (state) {
+    case REST1:
+    Show=nothing;
+    fill_solid( leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
+    state=REST2;
+    break;
+    case REST2:
+    break;
+    case SHOWTIME:
+    compare=now();
+    state=SHOWTIME2;
+    break;
+    case SHOWTIME2:
+    Show = shownow;
+      if(compare>now()-15){ //na 15 seconden
+        state=REST1;
+        }
+    break;
+    case SETTIME:
+    indicator = CRGB::DarkBlue;
+    setTime(AdjustTime(now()));
+    state=SHOWTIME;
+    break;
+    case SETAL:
+    indicator = CRGB::DarkGreen;
+    Show=showAl;
+    AlarmTime = AdjustTime(AlarmTime);
+    // todo: alarm on/off
+    state=SHOWTIME;
+    break;
+    case SHOWREEL:
+    // todo: show fastled showreel / use buttons to choose which effect or auto-rotate
+    Show=sinelon;
+    break;
+    default:
+    state=SHOWTIME;
+  }
+
+  switch(light){
+  case OFF:
+  digitalWrite(WW_LEDS,LOW);
+  digitalWrite(CW_LEDS,LOW);
+  break;
+  case WW:
+  digitalWrite(WW_LEDS,HIGH);
+  digitalWrite(CW_LEDS,LOW);
+  break;
+  case CW:
+  digitalWrite(WW_LEDS,LOW);
+  digitalWrite(CW_LEDS,HIGH);
+  case CWW:
+  digitalWrite(WW_LEDS,HIGH);
+  digitalWrite(CW_LEDS,HIGH);
+  break;
+  case RST:
+  light=OFF;
+  //TODO: counter++, maar resetten na 5s?
+  break;
+  case EASTERPONG:
+  // TODO: play pong
+  break;
+  default:
+  light=OFF;
+  }
+  
+
+/*
+  if(digitalRead(SW1)==0){
+    while(digitalRead(SW1)==0) delay(20); // wait for release
+    }
+  
+  if(digitalRead(SW2)==0){
+    while(digitalRead(SW2)==0) delay(20); // wait for release
+    
+    }
+  */
+  
+  if(digitalRead(SW_TOP)==0){
+    while(digitalRead(SW_TOP)==0) delay(20); // wait for release
+    switch (state) {
+    case REST2:
+    state=SHOWTIME;
+    if(light!=OFF) light++;
+    break;
+    case SHOWTIME2:
+    light++;
+    break;
+    case SHOWREEL:
+    //?
+    break;
+  }
+    }
+
+// TODO: above statemachine should replace most of this...
+  //Show= shownow;
   
   if(digitalRead(SW1)==0){
     indicator = CRGB::DarkBlue;
@@ -72,12 +172,12 @@ void loop()
     Show=showAl;
     AlarmTime = AdjustTime(AlarmTime);
     }
-  
+ /* 
   if(digitalRead(SW_TOP)==0){
     digitalWrite(WW_LEDS,!digitalRead(WW_LEDS)); // whoa. This could be much better by writing to PINx.x so it toggles in 1 asm instruction with no RMW, but OK... 
     while(digitalRead(SW_TOP)==0); // wait untill button release.
     }
-  
+  */
 }
 
 
@@ -88,6 +188,10 @@ void sinelon()
   int pos = beatsin16(13,0,NUM_LEDS);
   leds[pos] += CHSV( gHue, 255, 192);
 }
+
+
+void nothing(){
+  };
 
 void showtime(time_t TTS){ // TTS = Time To Show
   fill_solid( leds, NUM_LEDS, CRGB::Black); 
