@@ -89,6 +89,7 @@ void loop()
     break;
     case SETTIME:
     indicator = CRGB::DarkBlue;
+    Show=shownow;
     setTime(AdjustTime(now()));
     state=SHOWTIME;
     break;
@@ -136,16 +137,17 @@ void loop()
   }
   
 
-/*
+
   if(digitalRead(SW1)==0){
     while(digitalRead(SW1)==0) delay(20); // wait for release
+    state=SETTIME;
     }
   
   if(digitalRead(SW2)==0){
     while(digitalRead(SW2)==0) delay(20); // wait for release
-    
+    state=SETAL;
     }
-  */
+  
   
   if(digitalRead(SW_TOP)==0){
     while(digitalRead(SW_TOP)==0) delay(20); // wait for release
@@ -163,14 +165,13 @@ void loop()
         }// todo: uitbreiden met pong?
     break;
     case SHOWREEL:
-    //?
+    gHue++; //? todo: switch animations/auto-swich
     break;
   }
     }
 
 // TODO: above statemachine should replace most of this...
-  //Show= shownow;
-  
+ /*
   if(digitalRead(SW1)==0){
     indicator = CRGB::DarkBlue;
     setTime(AdjustTime(now()));
@@ -181,6 +182,7 @@ void loop()
     Show=showAl;
     AlarmTime = AdjustTime(AlarmTime);
     }
+    */
  /* 
   if(digitalRead(SW_TOP)==0){
     digitalWrite(WW_LEDS,!digitalRead(WW_LEDS)); // whoa. This could be much better by writing to PINx.x so it toggles in 1 asm instruction with no RMW, but OK... 
