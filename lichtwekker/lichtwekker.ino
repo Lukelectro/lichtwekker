@@ -1,4 +1,5 @@
 // lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
+const int TIMEOUT = 5;
 
 #include "FastLED.h"
 #include <mTime.h>             // use modified time.h lib. (Uses timer1 interrupt instead of milis -
@@ -61,7 +62,7 @@ void loop()
 
   enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL};
   enum LSTATE {OFF, WW, CW, CWW, RST, EASTERPONG};
-  static int light = OFF, state=SHOWTIME;
+  static int light = OFF, state=SHOWTIME, egg=0;
   static time_t compare;
 
 
@@ -80,9 +81,9 @@ void loop()
     state=SHOWTIME2;
     break;
     case SHOWTIME2:
-      //if(compare>=(now()-15)){ //na 15 seconden (TODO: verify this is the right way to do this)
-        if(now()-compare>15){ //na 15 seconden
+        if(now()-compare>TIMEOUT){ //na b.v. 5 seconden
         state=REST1;
+        egg=0;
         }
    
     break;
@@ -155,6 +156,11 @@ void loop()
     break;
     case SHOWTIME2:
     light++;
+    egg++;
+      if(egg>9){
+        light=OFF;
+        state=SHOWREEL;
+        }// todo: uitbreiden met pong?
     break;
     case SHOWREEL:
     //?
