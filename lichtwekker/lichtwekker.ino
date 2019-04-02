@@ -61,8 +61,8 @@ void loop()
 
   enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL};
   enum LSTATE {OFF, WW, CW, CWW, RST, EASTERPONG};
-  int light = OFF, state=SHOWTIME;
-  time_t compare;
+  static int light = OFF, state=SHOWTIME;
+  static time_t compare;
 
 
   switch (state) {
@@ -76,13 +76,15 @@ void loop()
     break;
     case SHOWTIME:
     compare=now();
+    Show = shownow;
     state=SHOWTIME2;
     break;
     case SHOWTIME2:
-    Show = shownow;
-      if(compare>now()-15){ //na 15 seconden
+      //if(compare>=(now()-15)){ //na 15 seconden (TODO: verify this is the right way to do this)
+        if(now()-compare>15){ //na 15 seconden
         state=REST1;
         }
+   
     break;
     case SETTIME:
     indicator = CRGB::DarkBlue;
@@ -116,6 +118,7 @@ void loop()
   case CW:
   digitalWrite(WW_LEDS,LOW);
   digitalWrite(CW_LEDS,HIGH);
+  break;
   case CWW:
   digitalWrite(WW_LEDS,HIGH);
   digitalWrite(CW_LEDS,HIGH);
