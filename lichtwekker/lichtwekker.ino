@@ -150,7 +150,10 @@ void loop()
   
   
   if(digitalRead(SW_TOP)==0){
-    while(digitalRead(SW_TOP)==0) delay(20); // wait for release
+    while(digitalRead(SW_TOP)==0) { // wait for release
+      delay(20); //debounce
+      gHue++;    //for various visual effects
+    }
     switch (state) {
     case REST2:
     state=SHOWTIME;
@@ -165,7 +168,7 @@ void loop()
         }// todo: uitbreiden met pong?
     break;
     case SHOWREEL:
-    gHue++; //? todo: switch animations/auto-swich
+    //? todo: switch animations/auto-swich
     break;
   }
     }
