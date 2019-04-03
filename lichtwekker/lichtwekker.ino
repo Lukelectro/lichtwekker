@@ -56,13 +56,16 @@ typedef void (*fpointer)();
 fpointer Show = sinelon; // Set this pointer to what function should be called just before a refresh in tick();
 
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE};
+enum LSTATE {OFF, WW, CW, CWW, RST, LWAKE, EASTERPONG};
+ 
+int light = OFF, state=SHOWTIME;
+ 
   
 void loop()
 {
 
-  enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL};
-  enum LSTATE {OFF, WW, CW, CWW, RST, EASTERPONG};
-  static int light = OFF, state=SHOWTIME, egg=0;
+  static int egg=0;
   static time_t compare;
 
 
@@ -104,6 +107,9 @@ void loop()
     // todo: show fastled showreel / use buttons to choose which effect or auto-rotate
     Show=sinelon;
     break;
+    case SWAKE:
+    //...
+    break;
     default:
     state=SHOWTIME;
   }
@@ -131,6 +137,10 @@ void loop()
   break;
   case EASTERPONG:
   // TODO: play pong
+  break;
+  case LWAKE:
+  digitalWrite(WW_LEDS,HIGH);
+  // todo: more sophisticated wake-up animation before turning light on.
   break;
   default:
   light=OFF;
@@ -285,7 +295,9 @@ void tick() {
   // Will be called at 5Hz.
  
   if ( hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
-    digitalWrite(WW_LEDS, 1); // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match
+    //digitalWrite(WW_LEDS, 1); // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match
+    light=LWAKE; // otherwise it turns off right again.
+    state=SWAKE;
   }; 
   
   Show(); 
