@@ -180,6 +180,10 @@ void loop()
     case SHOWREEL:
     //? todo: switch animations/auto-swich
     break;
+    case SWAKE:
+    light=OFF;
+    state=SHOWTIME;
+    break;
   }
     }
 
