@@ -26,12 +26,15 @@ CRGB leds[NUM_LEDS];
 #define BRIGHTNESS          128
 
 
-time_t AlarmTime(7,30,0), SetTime;
+time_t AlarmTime, SetTime;
 CRGB indicator = CRGB::Black;
 
 
 void setup() {
   delay(3000); // 3 second delay for recovery
+  //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
+  AlarmTime = 7*3600+30*60;
+
 
   pinMode(SW1,INPUT_PULLUP);
   pinMode(SW2,INPUT_PULLUP);
@@ -186,26 +189,6 @@ void loop()
     break;
   }
     }
-
-// TODO: above statemachine should replace most of this...
- /*
-  if(digitalRead(SW1)==0){
-    indicator = CRGB::DarkBlue;
-    setTime(AdjustTime(now()));
-    }
-  
-  if(digitalRead(SW2)==0){
-    indicator = CRGB::DarkGreen;
-    Show=showAl;
-    AlarmTime = AdjustTime(AlarmTime);
-    }
-    */
- /* 
-  if(digitalRead(SW_TOP)==0){
-    digitalWrite(WW_LEDS,!digitalRead(WW_LEDS)); // whoa. This could be much better by writing to PINx.x so it toggles in 1 asm instruction with no RMW, but OK... 
-    while(digitalRead(SW_TOP)==0); // wait untill button release.
-    }
-  */
 }
 
 
@@ -218,7 +201,7 @@ void sinelon()
 }
 
 
-void nothing(){
+void nothing(){ // or could I use NULL?
   };
 
 void showtime(time_t TTS){ // TTS = Time To Show
@@ -242,7 +225,6 @@ void showAdj(){
   }
  
 time_t AdjustTime(time_t startval){ //starts from startval and returns adjusted time, shows it on ledstrip while adjusting 
-  // TODO: implement
   TimeElements temp;
  
   /* // when minute wraps around, hour gets rounded up or down. Same with minute when second wraps... So lets use breaktime instead...
