@@ -187,6 +187,8 @@ void loop()
     light=OFF;
     state=SHOWTIME;
     break;
+    default:
+    break;
   }
     }
 }
