@@ -26,34 +26,6 @@ CRGB leds[NUM_LEDS];
 time_t AlarmTime, SetTime;
 CRGB indicator = CRGB::Black;
 
-
-void setup() {
-  delay(3000); // 3 second delay for recovery
-  
-  //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
-  AlarmTime = 7*3600+30*60;
-
-  setTime(7,29,56,1,1,1970);// for test
-
-  pinMode(SW1,INPUT_PULLUP);
-  pinMode(SW2,INPUT_PULLUP);
-  pinMode(SW_TOP,INPUT_PULLUP);
-  pinMode(CW_LEDS,OUTPUT);
-  pinMode(WW_LEDS,OUTPUT);
-  
-  TimeStart(tick); // to init timer interrupt in modified time library, and make it call the tick function on interrupt.
-  
-  // Set timer slower by overwriting settings:
-  TCCR0B=4; // prescaler 256 instead of 64. (So millis gets 4 times as slow and spending NLEDS(=60)*30us=1.8ms with interrupts disabled is no longer an issue)
-  
-  // tell FastLED about the LED strip configuration
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-  // set master brightness control
-  FastLED.setBrightness(BRIGHTNESS);
-  
-}
-
-
 typedef void (*fpointer)();
 fpointer Show = sinelon; // Set this pointer to what function should be called just before a refresh in tick();
 
@@ -74,6 +46,33 @@ unsigned int waking=0;
 
 bool alset = true; // alarm set or not?
   
+
+void setup() {
+  delay(3000); // 3 second delay for recovery
+  
+  //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
+  AlarmTime = 7*3600+30*60;
+
+  //setTime(7,29,56,1,1,1970);// for testing alarm
+
+  pinMode(SW1,INPUT_PULLUP);
+  pinMode(SW2,INPUT_PULLUP);
+  pinMode(SW_TOP,INPUT_PULLUP);
+  pinMode(CW_LEDS,OUTPUT);
+  pinMode(WW_LEDS,OUTPUT);
+  
+  TimeStart(tick); // to init timer interrupt in modified time library, and make it call the tick function on interrupt.
+  
+  // Set timer slower by overwriting settings:
+  TCCR0B=4; // prescaler 256 instead of 64. (So millis gets 4 times as slow and spending NLEDS(=60)*30us=1.8ms with interrupts disabled is no longer an issue)
+  
+  // tell FastLED about the LED strip configuration
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  // set master brightness control
+  FastLED.setBrightness(BRIGHTNESS);
+  
+}
+
 void loop()
 {
 
