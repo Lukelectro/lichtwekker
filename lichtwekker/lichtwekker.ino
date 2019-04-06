@@ -68,7 +68,7 @@ enum LSTATE {OFF, WW, CW, CWW, RST, LWAKE, EASTERPONG};
  
 int light = OFF, state=SHOWTIME;
 
-// bool ALR = true; // alarm set or not?
+bool alset = true, alring = false; // alarm set / ringing or not?
   
 void loop()
 {
@@ -93,6 +93,9 @@ void loop()
     state=SHOWTIME2;
     break;
     case SHOWTIME2:
+
+        if(alset) indicator = CRGB::DarkGoldenrod; else indicator = CRGB::Black;
+        
         if(now()-compare>TIMEOUT){ //na b.v. 5 seconden
         state=REST1;
         egg=0;
@@ -100,16 +103,16 @@ void loop()
    
     break;
     case SETTIME:
-    indicator = CRGB::DarkBlue;
+    indicator = CRGB::LightGoldenrodYellow;
     Show=shownow;
     setTime(AdjustTime(now()));
     state=SHOWTIME;
     break;
     case SETAL:
-    indicator = CRGB::DarkGreen;
+    indicator = CRGB::OliveDrab;
     Show=showAl;
+    alset = !alset; // alarm on/off
     AlarmTime = AdjustTime(AlarmTime);
-    // todo: alarm on/off
     state=SHOWTIME;
     break;
     case SHOWREEL:
@@ -243,6 +246,7 @@ void showtime(time_t TTS){ // TTS = Time To Show
   leds[NUM_LEDS-hour(TTS)] += CRGB::Green;
   leds[second(TTS)] += CRGB::DarkRed;
   leds[0] += indicator;
+  leds[59] += indicator;
   }
 
 void shownow(){ // bit of a wraparound, because Show(); does not take arguments.
@@ -441,8 +445,8 @@ void Fire2012()
 void tick() {
   // Will be called at 5Hz.
  
-  if ( hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
-    //digitalWrite(WW_LEDS, 1); // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match
+  if ( alset && hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
+    // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match: alring=true etc.
     light=LWAKE; // otherwise it turns off right again.
     state=SWAKE;
   }; 
