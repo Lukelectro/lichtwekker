@@ -29,9 +29,11 @@ CRGB indicator = CRGB::Black;
 
 void setup() {
   delay(3000); // 3 second delay for recovery
+  
   //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
   AlarmTime = 7*3600+30*60;
 
+  setTime(7,29,56,1,1,1970);// for test
 
   pinMode(SW1,INPUT_PULLUP);
   pinMode(SW2,INPUT_PULLUP);
@@ -66,9 +68,11 @@ uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE};
 enum LSTATE {OFF, WW, CW, CWW, RST, LWAKE, EASTERPONG};
  
-int light = OFF, state=SHOWTIME;
+uint8_t light = OFF, state=SHOWTIME;
 
-bool alset = true, alring = false; // alarm set / ringing or not?
+unsigned int waking=0;
+
+bool alset = true; // alarm set or not?
   
 void loop()
 {
@@ -136,7 +140,8 @@ void loop()
     
     break;
     case SWAKE:
-    //...
+    //light=LWAKE; // otherwise it turns off right again.
+    Show=WakeAnim; // more sophisticated animation before turning lights on
     break;
     default:
     state=SHOWTIME;
@@ -167,7 +172,6 @@ void loop()
   break;
   case LWAKE:
   digitalWrite(WW_LEDS,HIGH);
-  // todo: more sophisticated wake-up animation before turning light on.
   break;
   default:
   light=OFF;
@@ -182,6 +186,10 @@ void loop()
         nextPattern();
         autoreel = false;
         break;
+        case SWAKE:
+        light=OFF;
+        state=SHOWTIME;
+        break;
         default:
         state=SETTIME;
         }
@@ -191,6 +199,10 @@ void loop()
     while(digitalRead(SW2)==0) delay(20); // wait for release
     switch(state){
         case SHOWREEL:
+        state=SHOWTIME;
+        break;
+        case SWAKE:
+        light=OFF;
         state=SHOWTIME;
         break;
         default:
@@ -311,6 +323,21 @@ time_t AdjustTime(time_t startval){ //starts from startval and returns adjusted 
   //AlarmSet?indicator:CRGB::Red:CRGB::Black; // unreadable... But shorter
   return SetTime; // even though it is a global anyway... (Yeah, should've thought this trough. But it needs to be a global to use it in interrupt).
   }
+
+  void WakeAnim(){
+    // wake- up animation...
+    // todo: improve
+    // idea: fade in red leds from bottom to top slowly, and as last step, turn on WW ledstrip.
+
+    if(waking==0) fill_solid( leds, NUM_LEDS, CRGB::Black);
+    if(waking<=(NUM_LEDS*5)) waking++;
+
+    leds[(waking/5)] += CHSV(HUE_RED,255,50); // todo: nicer lineair dimming/brightening?
+     
+      if(waking>=NUM_LEDS*5){ // because it refreshes at 5 Hz.
+        light=LWAKE;
+        }
+    }
 
   void rainbow() 
 {
@@ -446,8 +473,8 @@ void tick() {
   // Will be called at 5Hz.
  
   if ( alset && hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
-    // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match: alring=true etc.
-    light=LWAKE; // otherwise it turns off right again.
+    // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match.
+    waking=0; // reset wake animation
     state=SWAKE;
   }; 
   
