@@ -75,6 +75,7 @@ void loop()
 
   static int egg=0;
   static time_t compare;
+  static bool autoreel = true;
 
 
   switch (state) {
@@ -115,8 +116,20 @@ void loop()
     // todo: show fastled showreel / use buttons to choose which effect or auto-rotate
     //Show=sinelon;
     Show = gPatterns[gCurrentPatternNumber];
-    EVERY_N_SECONDS( 10 ) { nextPattern(); } // change patterns periodically (might be slower because millis is slower??)
-    // also might want to call fastled.show() more often for smoother display...
+    
+    // might want to call fastled.show() more often for smoother display... but below is not the right way
+    /*
+    Show = nothing;// diable automatic 5s refresh
+    gPatterns[gCurrentPatternNumber]; // call the patern
+    delay(1000/30);// 30 fps / do not starve timekeeping timer interrupt
+    FastLED.show(); 
+    */
+      
+    
+    //if(autoreel) EVERY_N_SECONDS( 10 ) { nextPattern(); }; // change patterns periodically (might be slower because millis is slower??)
+    // hah. the above should work but throws compiler errors unless expressed as:
+    if(autoreel){ EVERY_N_SECONDS( 10 ) { nextPattern(); };} // change patterns periodically (might be slower because millis is slower??)
+    
     
     break;
     case SWAKE:
@@ -161,12 +174,25 @@ void loop()
 
   if(digitalRead(SW1)==0){
     while(digitalRead(SW1)==0) delay(20); // wait for release
-    state=SETTIME;
+      switch(state){
+        case SHOWREEL:
+        nextPattern();
+        autoreel = false;
+        break;
+        default:
+        state=SETTIME;
+        }
     }
   
   if(digitalRead(SW2)==0){
     while(digitalRead(SW2)==0) delay(20); // wait for release
-    state=SETAL;
+    switch(state){
+        case SHOWREEL:
+        state=SHOWTIME;
+        break;
+        default:
+        state=SETAL;
+        }
     }
   
   
@@ -185,11 +211,12 @@ void loop()
     egg++;
       if(egg>9){
         light=OFF;
+        autoreel=true;
         state=SHOWREEL;
         }// todo: uitbreiden met pong?
     break;
     case SHOWREEL:
-    //? todo: switch animations/auto-swich
+      //if(egg>13){ light=OFF; state=EASTERPONG;}
     break;
     case SWAKE:
     light=OFF;
