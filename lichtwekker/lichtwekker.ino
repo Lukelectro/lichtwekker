@@ -1,6 +1,6 @@
 // lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
 // also re-uses FastLED demo reel.
-const int TIMEOUT = 5;
+const int TIMEOUT = 30;
 
 #include <FastLED.h>
 #include <mTime.h>             // use modified time.h lib. (Uses timer1 interrupt instead of milis -
@@ -26,12 +26,6 @@ CRGB leds[NUM_LEDS];
 time_t AlarmTime, SetTime;
 CRGB indicator = CRGB::Black;
 
-typedef void (*fpointer)();
-fpointer Show = sinelon; // Set this pointer to what function should be called just before a refresh in tick();
-
-typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm, Fire2012};
-
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -39,207 +33,219 @@ uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 
 enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE};
 enum LSTATE {OFF, WW, CW, CWW, RST, LWAKE, EASTERPONG};
- 
-uint8_t light = OFF, state=SHOWTIME;
 
-unsigned int waking=0;
+uint8_t light = OFF, state = SHOWTIME;
+
+unsigned int waking = 0;
 
 bool alset = true; // alarm set or not?
-  
+
+void sinelon(), rainbow(), rainbowWithGlitter(), confetti(), sinelon(), juggle(), bpm(), Fire2012(); // prototypes
+// arduino normaly handles prototypes for you, but it refused to compile without this line on arduino 1.8.9 suddenly?!?
+
+typedef void (*fpointer)();
+fpointer Show = sinelon; // Set this pointer to what function should be called just before a refresh in tick();
+
+typedef void (*SimplePatternList[])();
+SimplePatternList gPatterns = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm, Fire2012};
 
 void setup() {
   delay(3000); // 3 second delay for recovery
-  
+
   //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
-  AlarmTime = 7*3600+30*60;
+  AlarmTime = 7 * 3600 + 30 * 60;
 
   //setTime(7,29,56,1,1,1970);// for testing alarm
 
-  pinMode(SW1,INPUT_PULLUP);
-  pinMode(SW2,INPUT_PULLUP);
-  pinMode(SW_TOP,INPUT_PULLUP);
-  pinMode(CW_LEDS,OUTPUT);
-  pinMode(WW_LEDS,OUTPUT);
-  
+  pinMode(SW1, INPUT_PULLUP);
+  pinMode(SW2, INPUT_PULLUP);
+  pinMode(SW_TOP, INPUT_PULLUP);
+  pinMode(CW_LEDS, OUTPUT);
+  pinMode(WW_LEDS, OUTPUT);
+
   TimeStart(tick); // to init timer interrupt in modified time library, and make it call the tick function on interrupt.
-  
+
   // Set timer slower by overwriting settings:
-  TCCR0B=4; // prescaler 256 instead of 64. (So millis gets 4 times as slow and spending NLEDS(=60)*30us=1.8ms with interrupts disabled is no longer an issue)
-  
+  TCCR0B = 4; // prescaler 256 instead of 64. (So millis gets 4 times as slow and spending NLEDS(=60)*30us=1.8ms with interrupts disabled is no longer an issue)
+
   // tell FastLED about the LED strip configuration
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   // set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
-  
+
 }
 
 void loop()
 {
 
-  static int egg=0;
+  static int egg = 0;
   static time_t compare;
   static bool autoreel = true;
 
 
   switch (state) {
     case REST1:
-    Show=nothing;
-    fill_solid( leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
-    state=REST2;
-    break;
+      Show = nothing;
+      fill_solid( leds, NUM_LEDS, CRGB::Black);
+      FastLED.show();
+      state = REST2;
+      break;
     case REST2:
-    break;
+      break;
     case SHOWTIME:
-    compare=now();
-    Show = shownow;
-    state=SHOWTIME2;
-    break;
+      compare = now();
+      Show = shownow;
+      state = SHOWTIME2;
+      break;
     case SHOWTIME2:
 
-        if(alset) indicator = CRGB::DarkGoldenrod; else indicator = CRGB::Black;
-        
-        if(now()-compare>TIMEOUT){ //na b.v. 5 seconden
-        state=REST1;
-        egg=0;
-        }
-   
-    break;
+      if (alset) indicator = CRGB::DarkGoldenrod; else indicator = CRGB::Black;
+
+      if (now() - compare > TIMEOUT) { //na b.v. 5 seconden
+        state = REST1;
+        egg = 0;
+      }
+
+      break;
     case SETTIME:
-    indicator = CRGB::LightGoldenrodYellow;
-    Show=shownow;
-    setTime(AdjustTime(now()));
-    state=SHOWTIME;
-    break;
+      indicator = CRGB::LightGoldenrodYellow;
+      Show = shownow;
+      setTime(AdjustTime(now()));
+      state = SHOWTIME;
+      break;
     case SETAL:
-    indicator = CRGB::OliveDrab;
-    Show=showAl;
-    alset = !alset; // alarm on/off
-    AlarmTime = AdjustTime(AlarmTime);
-    state=SHOWTIME;
-    break;
+      indicator = CRGB::OliveDrab;
+      Show = showAl;
+      alset = !alset; // alarm on/off
+      AlarmTime = AdjustTime(AlarmTime);
+      state = SHOWTIME;
+      break;
     case SHOWREEL:
-    // todo: show fastled showreel / use buttons to choose which effect or auto-rotate
-    //Show=sinelon;
-    Show = gPatterns[gCurrentPatternNumber];
-    
-    // might want to call fastled.show() more often for smoother display... but below is not the right way
-    /*
-    Show = nothing;// diable automatic 5s refresh
-    gPatterns[gCurrentPatternNumber]; // call the patern
-    delay(1000/30);// 30 fps / do not starve timekeeping timer interrupt
-    FastLED.show(); 
-    */
-      
-    
-    //if(autoreel) EVERY_N_SECONDS( 10 ) { nextPattern(); }; // change patterns periodically (might be slower because millis is slower??)
-    // hah. the above should work but throws compiler errors unless expressed as:
-    if(autoreel){ EVERY_N_SECONDS( 10 ) { nextPattern(); };} // change patterns periodically (might be slower because millis is slower??)
-    
-    
-    break;
+      // todo: show fastled showreel / use buttons to choose which effect or auto-rotate
+      //Show=sinelon;
+      Show = gPatterns[gCurrentPatternNumber];
+
+      // might want to call fastled.show() more often for smoother display... but below is not the right way
+      /*
+        Show = nothing;// diable automatic 5s refresh
+        gPatterns[gCurrentPatternNumber]; // call the patern
+        delay(1000/30);// 30 fps / do not starve timekeeping timer interrupt
+        FastLED.show();
+      */
+
+
+      //if(autoreel) EVERY_N_SECONDS( 10 ) { nextPattern(); }; // change patterns periodically (might be slower because millis is slower??)
+      // hah. the above should work but throws compiler errors unless expressed as:
+      if (autoreel) {
+        EVERY_N_SECONDS( 10 ) {
+          nextPattern();  // change patterns periodically (might be slower because millis is slower??)
+        };
+      }
+
+
+      break;
     case SWAKE:
-    //light=LWAKE; // otherwise it turns off right again.
-    Show=WakeAnim; // more sophisticated animation before turning lights on
-    break;
+      //light=LWAKE; // otherwise it turns off right again.
+      Show = WakeAnim; // more sophisticated animation before turning lights on
+      break;
     default:
-    state=SHOWTIME;
+      state = SHOWTIME;
   }
 
-  switch(light){
-  case OFF:
-  digitalWrite(WW_LEDS,LOW);
-  digitalWrite(CW_LEDS,LOW);
-  break;
-  case WW:
-  digitalWrite(WW_LEDS,HIGH);
-  digitalWrite(CW_LEDS,LOW);
-  break;
-  case CW:
-  digitalWrite(WW_LEDS,LOW);
-  digitalWrite(CW_LEDS,HIGH);
-  break;
-  case CWW:
-  digitalWrite(WW_LEDS,HIGH);
-  digitalWrite(CW_LEDS,HIGH);
-  break;
-  case RST:
-  light=OFF;
-  break;
-  case EASTERPONG:
-  // TODO: play pong
-  break;
-  case LWAKE:
-  digitalWrite(WW_LEDS,HIGH);
-  break;
-  default:
-  light=OFF;
+  switch (light) {
+    case OFF:
+      digitalWrite(WW_LEDS, LOW);
+      digitalWrite(CW_LEDS, LOW);
+      break;
+    case WW:
+      digitalWrite(WW_LEDS, HIGH);
+      digitalWrite(CW_LEDS, LOW);
+      break;
+    case CW:
+      digitalWrite(WW_LEDS, LOW);
+      digitalWrite(CW_LEDS, HIGH);
+      break;
+    case CWW:
+      digitalWrite(WW_LEDS, HIGH);
+      digitalWrite(CW_LEDS, HIGH);
+      break;
+    case RST:
+      light = OFF;
+      break;
+    case EASTERPONG:
+      // TODO: play pong
+      break;
+    case LWAKE:
+      digitalWrite(WW_LEDS, HIGH);
+      break;
+    default:
+      light = OFF;
   }
-  
 
 
-  if(digitalRead(SW1)==0){
-    while(digitalRead(SW1)==0) delay(20); // wait for release
-      switch(state){
-        case SHOWREEL:
+
+  if (digitalRead(SW1) == 0) {
+    while (digitalRead(SW1) == 0) delay(20); // wait for release
+    switch (state) {
+      case SHOWREEL:
         nextPattern();
         autoreel = false;
         break;
-        case SWAKE:
-        light=OFF;
-        state=SHOWTIME;
+      case SWAKE:
+        light = OFF;
+        state = SHOWTIME;
         break;
-        default:
-        state=SETTIME;
-        }
+      default:
+        state = SETTIME;
     }
-  
-  if(digitalRead(SW2)==0){
-    while(digitalRead(SW2)==0) delay(20); // wait for release
-    switch(state){
-        case SHOWREEL:
-        state=SHOWTIME;
+  }
+
+  if (digitalRead(SW2) == 0) {
+    while (digitalRead(SW2) == 0) delay(20); // wait for release
+    switch (state) {
+      case SHOWREEL:
+        state = SHOWTIME;
         break;
-        case SWAKE:
-        light=OFF;
-        state=SHOWTIME;
+      case SWAKE:
+        light = OFF;
+        state = SHOWTIME;
         break;
-        default:
-        state=SETAL;
-        }
+      default:
+        state = SETAL;
     }
-  
-  
-  if(digitalRead(SW_TOP)==0){
-    while(digitalRead(SW_TOP)==0) { // wait for release
+  }
+
+
+  if (digitalRead(SW_TOP) == 0) {
+    while (digitalRead(SW_TOP) == 0) { // wait for release
       delay(20); //debounce
       gHue++;    //for various visual effects
     }
     switch (state) {
-    case REST2:
-    state=SHOWTIME;
-    if(light!=OFF) light++;
-    break;
-    case SHOWTIME2:
-    light++;
-    egg++;
-      if(egg>9){
-        light=OFF;
-        autoreel=true;
-        state=SHOWREEL;
+      case REST2:
+        state = SHOWTIME;
+        if (light != OFF) light++;
+        break;
+      case SHOWTIME2:
+        light++;
+        egg++;
+        if (egg > 9) {
+          light = OFF;
+          autoreel = true;
+          state = SHOWREEL;
         }// todo: uitbreiden met pong?
-    break;
-    case SHOWREEL:
-      //if(egg>13){ light=OFF; state=EASTERPONG;}
-    break;
-    case SWAKE:
-    light=OFF;
-    state=SHOWTIME;
-    break;
-    default:
-    break;
-  }
+        break;
+      case SHOWREEL:
+        //if(egg>13){ light=OFF; state=EASTERPONG;}
+        break;
+      case SWAKE:
+        light = OFF;
+        state = SHOWTIME;
+        break;
+      default:
+        break;
     }
+  }
 }
 
 void nextPattern()
@@ -248,117 +254,117 @@ void nextPattern()
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
 }
 
-void nothing(){ // or could I use NULL?
-  };
+void nothing() { // or could I use NULL?
+};
 
-void showtime(time_t TTS){ // TTS = Time To Show
-  fill_solid( leds, NUM_LEDS, CRGB::Black); 
+void showtime(time_t TTS) { // TTS = Time To Show
+  fill_solid( leds, NUM_LEDS, CRGB::Black);
   leds[minute(TTS)] += CRGB::DarkRed;
-  leds[NUM_LEDS-hour(TTS)] += CRGB::Green;
+  leds[NUM_LEDS - hour(TTS)] += CRGB::Green;
   leds[second(TTS)] += CRGB::DarkRed;
   leds[0] += indicator;
   leds[59] += indicator;
-  }
+}
 
-void shownow(){ // bit of a wraparound, because Show(); does not take arguments.
+void shownow() { // bit of a wraparound, because Show(); does not take arguments.
   showtime(now());
-  }
+}
 
-void showAl(){
+void showAl() {
   showtime(AlarmTime);
-  }  
+}
 
-void showAdj(){
+void showAdj() {
   showtime(SetTime);
-  }
- 
-time_t AdjustTime(time_t startval){ //starts from startval and returns adjusted time, shows it on ledstrip while adjusting 
+}
+
+time_t AdjustTime(time_t startval) { //starts from startval and returns adjusted time, shows it on ledstrip while adjusting
   TimeElements temp;
- 
+
   /* // when minute wraps around, hour gets rounded up or down. Same with minute when second wraps... So lets use breaktime instead...
-  temp.Hour=hour(startval);
-  temp.Minute=minute(startval);
-  temp.Second=second(startval); // could have used breaktime() fnction but only need these. Seem
+    temp.Hour=hour(startval);
+    temp.Minute=minute(startval);
+    temp.Second=second(startval); // could have used breaktime() fnction but only need these. Seem
   */
   breakTime(startval, temp);
-  
-  Show=showAdj;
-  
-  while( digitalRead(SW1)==0 || digitalRead(SW2)==0 ) delay(20);
-  
-  while(digitalRead(SW2) !=0){
-    if(digitalRead(SW1)==0){
-      if(temp.Hour<24) temp.Hour++; else temp.Hour=0;
+
+  Show = showAdj;
+
+  while ( digitalRead(SW1) == 0 || digitalRead(SW2) == 0 ) delay(20);
+
+  while (digitalRead(SW2) != 0) {
+    if (digitalRead(SW1) == 0) {
+      if (temp.Hour < 24) temp.Hour++; else temp.Hour = 0;
       delay(100); // remember: 4 times as long, because millis is slowed down...
     }
     //setTime(uur,minuut,seconde,1,1,1970); // Oh.. This can only set the current system time... And that WHILE seconds keep counting up... What kind of Bleep is that?
     SetTime = makeTime(temp);
   }
 
-  while(digitalRead(SW2)==0) delay(100);
-  
-  while(digitalRead(SW2) !=0){
-    if(digitalRead(SW1)==0){
-      if(temp.Minute<60) temp.Minute++; else temp.Minute=0;
-      delay(100);
-    }
-    SetTime = makeTime(temp);
-  }
-  
-  while(digitalRead(SW2)==0) delay(100);
-  
-  while(digitalRead(SW2) !=0){
-    if(digitalRead(SW1)==0){
-      if(temp.Second<60) temp.Second++; else temp.Second=0;
+  while (digitalRead(SW2) == 0) delay(100);
+
+  while (digitalRead(SW2) != 0) {
+    if (digitalRead(SW1) == 0) {
+      if (temp.Minute < 60) temp.Minute++; else temp.Minute = 0;
       delay(100);
     }
     SetTime = makeTime(temp);
   }
 
-  while(digitalRead(SW2)==0) delay(100);
-  
+  while (digitalRead(SW2) == 0) delay(100);
+
+  while (digitalRead(SW2) != 0) {
+    if (digitalRead(SW1) == 0) {
+      if (temp.Second < 60) temp.Second++; else temp.Second = 0;
+      delay(100);
+    }
+    SetTime = makeTime(temp);
+  }
+
+  while (digitalRead(SW2) == 0) delay(100);
+
   indicator = CRGB::Black; // Whoa. Then how to indicate that alarm is set?
   //if(AlarmSet) indicator = CRGB::Red; else indicator=CRGB::Black // something like that?
   //AlarmSet?indicator:CRGB::Red:CRGB::Black; // unreadable... But shorter
   return SetTime; // even though it is a global anyway... (Yeah, should've thought this trough. But it needs to be a global to use it in interrupt).
+}
+
+void WakeAnim() {
+  // wake- up animation...
+  // todo: improve
+  // idea: fade in red leds from bottom to top slowly, and as last step, turn on WW ledstrip.
+
+  if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
+  if (waking <= (NUM_LEDS * 5)) waking++;
+
+  leds[(waking / 5)] += CHSV(HUE_RED, 255, 50); // todo: nicer lineair dimming/brightening?
+
+  if (waking >= NUM_LEDS * 5) { // because it refreshes at 5 Hz.
+    light = LWAKE;
   }
+}
 
-  void WakeAnim(){
-    // wake- up animation...
-    // todo: improve
-    // idea: fade in red leds from bottom to top slowly, and as last step, turn on WW ledstrip.
-
-    if(waking==0) fill_solid( leds, NUM_LEDS, CRGB::Black);
-    if(waking<=(NUM_LEDS*5)) waking++;
-
-    leds[(waking/5)] += CHSV(HUE_RED,255,50); // todo: nicer lineair dimming/brightening?
-     
-      if(waking>=NUM_LEDS*5){ // because it refreshes at 5 Hz.
-        light=LWAKE;
-        }
-    }
-
-  void rainbow() 
+void rainbow()
 {
   // FastLED's built-in rainbow generator
   fill_rainbow( leds, NUM_LEDS, gHue, 7);
 }
 
-void rainbowWithGlitter() 
+void rainbowWithGlitter()
 {
   // built-in FastLED rainbow, plus some random sparkly glitter
   rainbow();
   addGlitter(80);
 }
 
-void addGlitter( fract8 chanceOfGlitter) 
+void addGlitter( fract8 chanceOfGlitter)
 {
-  if( random8() < chanceOfGlitter) {
+  if ( random8() < chanceOfGlitter) {
     leds[ random16(NUM_LEDS) ] += CRGB::White;
   }
 }
 
-void confetti() 
+void confetti()
 {
   // random colored speckles that blink in and fade smoothly
   fadeToBlackBy( leds, NUM_LEDS, 10);
@@ -370,7 +376,7 @@ void sinelon()
 {
   // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, 20);
-  int pos = beatsin16(13,0,NUM_LEDS);
+  int pos = beatsin16(13, 0, NUM_LEDS);
   leds[pos] += CHSV( gHue, 255, 192);
 }
 
@@ -380,8 +386,8 @@ void bpm()
   uint8_t BeatsPerMinute = 62;
   CRGBPalette16 palette = PartyColors_p;
   uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
-  for( int i = 0; i < NUM_LEDS; i++) { //9948
-    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
+  for ( int i = 0; i < NUM_LEDS; i++) { //9948
+    leds[i] = ColorFromPalette(palette, gHue + (i * 2), beat - gHue + (i * 10));
   }
 }
 
@@ -389,17 +395,17 @@ void juggle() {
   // eight colored dots, weaving in and out of sync with each other
   fadeToBlackBy( leds, NUM_LEDS, 20);
   byte dothue = 0;
-  for( int i = 0; i < 8; i++) {
-    leds[beatsin16(i+7,0,NUM_LEDS)] |= CHSV(dothue, 200, 255);
+  for ( int i = 0; i < 8; i++) {
+    leds[beatsin16(i + 7, 0, NUM_LEDS)] |= CHSV(dothue, 200, 255);
     dothue += 32;
   }
 }
 // Fire2012 by Mark Kriegsman, July 2012
 // as part of "Five Elements" shown here: http://youtu.be/knWiGsmgycY
-//// 
+////
 // This basic one-dimensional 'fire' simulation works roughly as follows:
 // There's a underlying array of 'heat' cells, that model the temperature
-// at each point along the line.  Every cycle through the simulation, 
+// at each point along the line.  Every cycle through the simulation,
 // four steps are performed:
 //  1) All cells cool down a little bit, losing heat to the air
 //  2) The heat from each cell drifts 'up' and diffuses a little
@@ -410,7 +416,7 @@ void juggle() {
 // Temperature is in arbitrary units from 0 (cold black) to 255 (white hot).
 //
 // This simulation scales it self a bit depending on NUM_LEDS; it should look
-// "OK" on anywhere from 20 to 100 LEDs without too much tweaking. 
+// "OK" on anywhere from 20 to 100 LEDs without too much tweaking.
 //
 // I recommend running this simulation at anywhere from 30-100 frames per second,
 // meaning an interframe delay of about 10-35 milliseconds.
@@ -424,7 +430,7 @@ void juggle() {
 //
 // COOLING: How much does the air cool as it rises?
 // Less cooling = taller flames.  More cooling = shorter flames.
-// Default 50, suggested range 20-100 
+// Default 50, suggested range 20-100
 #define COOLING  55
 
 // SPARKING: What chance (out of 255) is there that a new spark will be lit?
@@ -434,49 +440,49 @@ void juggle() {
 
 void Fire2012()
 {
-// Array of temperature readings at each simulation cell
+  // Array of temperature readings at each simulation cell
   static byte heat[NUM_LEDS];
   static bool gReverseDirection = false;
 
   // Step 1.  Cool down every cell a little
-    for( int i = 0; i < NUM_LEDS; i++) {
-      heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_LEDS) + 2));
-    }
-  
-    // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-    for( int k= NUM_LEDS - 1; k >= 2; k--) {
-      heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
-    }
-    
-    // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
-    if( random8() < SPARKING ) {
-      int y = random8(7);
-      heat[y] = qadd8( heat[y], random8(160,255) );
-    }
+  for ( int i = 0; i < NUM_LEDS; i++) {
+    heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_LEDS) + 2));
+  }
 
-    // Step 4.  Map from heat cells to LED colors
-    for( int j = 0; j < NUM_LEDS; j++) {
-      CRGB color = HeatColor( heat[j]);
-      int pixelnumber;
-      if( gReverseDirection ) {
-        pixelnumber = (NUM_LEDS-1) - j;
-      } else {
-        pixelnumber = j;
-      }
-      leds[pixelnumber] = color;
+  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
+  for ( int k = NUM_LEDS - 1; k >= 2; k--) {
+    heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
+  }
+
+  // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
+  if ( random8() < SPARKING ) {
+    int y = random8(7);
+    heat[y] = qadd8( heat[y], random8(160, 255) );
+  }
+
+  // Step 4.  Map from heat cells to LED colors
+  for ( int j = 0; j < NUM_LEDS; j++) {
+    CRGB color = HeatColor( heat[j]);
+    int pixelnumber;
+    if ( gReverseDirection ) {
+      pixelnumber = (NUM_LEDS - 1) - j;
+    } else {
+      pixelnumber = j;
     }
+    leds[pixelnumber] = color;
+  }
 }
 
 
 void tick() {
   // Will be called at 5Hz.
- 
+
   if ( alset && hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
     // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match.
-    waking=0; // reset wake animation
-    state=SWAKE;
-  }; 
-  
-  Show(); 
+    waking = 0; // reset wake animation
+    state = SWAKE;
+  };
+
+  Show();
   FastLED.show();
 }
