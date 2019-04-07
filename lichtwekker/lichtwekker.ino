@@ -20,7 +20,7 @@ FASTLED_USING_NAMESPACE
 #define NUM_LEDS    60
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS          128
+#define BRIGHTNESS 128 // set max brightness to limit power consumption.
 
 
 time_t AlarmTime, SetTime;
@@ -55,7 +55,7 @@ void setup() {
   //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
   AlarmTime = 7 * 3600 + 30 * 60;
 
-  //setTime(7,29,56,1,1,1970);// for testing alarm
+  setTime(7,29,56,1,1,1970);// for testing alarm
 
   pinMode(SW1, INPUT_PULLUP);
   pinMode(SW2, INPUT_PULLUP);
@@ -219,7 +219,6 @@ void loop()
   if (digitalRead(SW_TOP) == 0) {
     while (digitalRead(SW_TOP) == 0) { // wait for release
       delay(20); //debounce
-      gHue++;    //for various visual effects
     }
     switch (state) {
       case REST2:
@@ -333,13 +332,15 @@ void WakeAnim() {
   // wake- up animation...
   // todo: improve
   // idea: fade in red leds from bottom to top slowly, and as last step, turn on WW ledstrip.
+  const uint8_t STEPS = 7; // number of fade-in steps per LED. 5 steps per second (refresh at 5 Hz), so between 3 and 15 are reasonable values? default 5.
+  const uint8_t BRADD = 255/STEPS; // how much brightness is added per step?
 
   if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
-  if (waking <= (NUM_LEDS * 5)) waking++;
+  if (waking <= (NUM_LEDS * STEPS)) waking++;
 
-  leds[(waking / 5)] += CHSV(HUE_RED, 255, 50); // todo: nicer lineair dimming/brightening?
+  leds[(waking / STEPS)] += CHSV(HUE_RED, 255, BRADD); // todo: nicer lineair dimming/brightening?
 
-  if (waking >= NUM_LEDS * 5) { // because it refreshes at 5 Hz.
+  if (waking >= NUM_LEDS * STEPS) { // once the ws28 strip is lit
     light = LWAKE;
   }
 }
@@ -476,6 +477,8 @@ void Fire2012()
 
 void tick() {
   // Will be called at 5Hz.
+
+  gHue++;    //for various visual effects
 
   if ( alset && hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
     // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match.
