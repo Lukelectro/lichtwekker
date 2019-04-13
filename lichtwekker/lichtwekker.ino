@@ -195,6 +195,7 @@ void loop()
         autoreel = false;
         break;
       case SWAKE:
+        egg = 0;
         light = OFF;
         state = SHOWTIME;
         break;
@@ -215,6 +216,7 @@ void loop()
           state = SHOWTIME;
           break;
         case SWAKE:
+          egg = 0;
           light = OFF;
           state = SHOWTIME;
           break;
@@ -253,6 +255,7 @@ void loop()
           }
           break;
         case SWAKE:
+          egg = 0;
           light = OFF;
           state = SHOWTIME;
           break;
