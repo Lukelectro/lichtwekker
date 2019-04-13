@@ -6,7 +6,9 @@ const int TIMEOUT = 30;
 #include <mTime.h>             // use modified time.h lib. (Uses timer1 interrupt instead of milis -
 //- this breaks arduino built-in servo/pwm, but standard time.h relies on millis() which gets broken by FastLED as that disables interrupts for well over a millisecond)
 FASTLED_USING_NAMESPACE
-//#include "showreel.h" -- decided it was easyer and clearer to just keep this in one file
+// todo: split off showreel and fire2012 animations in seperate .h/.cpp files (.cpp, not .c! even if it is C. Or put extern "C"{ ... } in .h file)
+#include "onedpong.h"
+
 
 #define SW_TOP 5
 #define SW1 4
@@ -31,8 +33,8 @@ CRGB indicator = CRGB::Black;
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 
-enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE};
-enum LSTATE {OFF, WW, CW, CWW, RST, LWAKE, EASTERPONG};
+enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE, EASTERPONG};
+enum LSTATE {OFF, WW, CW, CWW, RST, LWAKE};
 
 uint8_t light = OFF, state = SHOWTIME;
 
@@ -62,6 +64,8 @@ void setup() {
   pinMode(SW_TOP, INPUT_PULLUP);
   pinMode(CW_LEDS, OUTPUT);
   pinMode(WW_LEDS, OUTPUT);
+
+  Pongsetup();
 
   TimeStart(tick); // to init timer interrupt in modified time library, and make it call the tick function on interrupt.
 
@@ -141,12 +145,13 @@ void loop()
           nextPattern();  // change patterns periodically (might be slower because millis is slower??)
         };
       }
-
-
       break;
     case SWAKE:
       //light=LWAKE; // otherwise it turns off right again.
       Show = WakeAnim; // more sophisticated animation before turning lights on
+      break;
+      case EASTERPONG:
+      Pongloop();//  play pong
       break;
     default:
       state = SHOWTIME;
@@ -172,9 +177,6 @@ void loop()
     case RST:
       light = OFF;
       break;
-    case EASTERPONG:
-      // TODO: play pong
-      break;
     case LWAKE:
       digitalWrite(WW_LEDS, HIGH);
       break;
@@ -195,6 +197,10 @@ void loop()
         light = OFF;
         state = SHOWTIME;
         break;
+      case EASTERPONG:
+        egg = 0;
+        state = SHOWTIME;
+        break;   
       default:
         state = SETTIME;
     }
@@ -204,6 +210,7 @@ void loop()
     while (digitalRead(SW2) == 0) delay(20); // wait for release
     switch (state) {
       case SHOWREEL:
+        egg = 0;
         state = SHOWTIME;
         break;
       case SWAKE:
@@ -232,10 +239,11 @@ void loop()
           light = OFF;
           autoreel = true;
           state = SHOWREEL;
-        }// todo: uitbreiden met pong?
+        }
         break;
       case SHOWREEL:
-        //if(egg>13){ light=OFF; state=EASTERPONG;}
+        egg++;
+        if(egg>13){ light=OFF; state=EASTERPONG;}
         break;
       case SWAKE:
         light = OFF;
