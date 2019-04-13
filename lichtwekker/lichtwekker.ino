@@ -70,7 +70,8 @@ void setup() {
   TimeStart(tick); // to init timer interrupt in modified time library, and make it call the tick function on interrupt.
 
   // Set timer slower by overwriting settings:
-  TCCR0B = 4; // prescaler 256 instead of 64. (So millis gets 4 times as slow and spending NLEDS(=60)*30us=1.8ms with interrupts disabled is no longer an issue)
+  //TCCR0B = 4; // prescaler 256 instead of 64. (So millis gets 4 times as slow and spending NLEDS(=60)*30us=1.8ms with interrupts disabled is no longer an issue)
+  // test if this is actually needed?
 
   // tell FastLED about the LED strip configuration
   FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
@@ -138,11 +139,11 @@ void loop()
       */
 
 
-      //if(autoreel) EVERY_N_SECONDS( 10 ) { nextPattern(); }; // change patterns periodically (might be slower because millis is slower??)
+      //if(autoreel) EVERY_N_SECONDS( 10 ) { nextPattern(); }; // change patterns periodically (might be slower because/if millis is slower??)
       // hah. the above should work but throws compiler errors unless expressed as:
       if (autoreel) {
         EVERY_N_SECONDS( 10 ) {
-          nextPattern();  // change patterns periodically (might be slower because millis is slower??)
+          nextPattern();  // change patterns periodically (might be slower because/if millis is slower??)
         };
       }
       break;
@@ -292,23 +293,17 @@ void showAdj() {
 time_t AdjustTime(time_t startval) { //starts from startval and returns adjusted time, shows it on ledstrip while adjusting
   TimeElements temp;
 
-  /* // when minute wraps around, hour gets rounded up or down. Same with minute when second wraps... So lets use breaktime instead...
-    temp.Hour=hour(startval);
-    temp.Minute=minute(startval);
-    temp.Second=second(startval); // could have used breaktime() fnction but only need these. Seem
-  */
   breakTime(startval, temp);
 
   Show = showAdj;
 
-  while ( digitalRead(SW1) == 0 || digitalRead(SW2) == 0 ) delay(20);
+  while ( digitalRead(SW1) == 0 || digitalRead(SW2) == 0 ) delay(100);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
       if (temp.Hour < 24) temp.Hour++; else temp.Hour = 0;
-      delay(100); // remember: 4 times as long, because millis is slowed down...
+      delay(400); 
     }
-    //setTime(uur,minuut,seconde,1,1,1970); // Oh.. This can only set the current system time... And that WHILE seconds keep counting up... What kind of Bleep is that?
     SetTime = makeTime(temp);
   }
 
@@ -317,7 +312,7 @@ time_t AdjustTime(time_t startval) { //starts from startval and returns adjusted
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
       if (temp.Minute < 60) temp.Minute++; else temp.Minute = 0;
-      delay(100);
+      delay(400);
     }
     SetTime = makeTime(temp);
   }
@@ -327,7 +322,7 @@ time_t AdjustTime(time_t startval) { //starts from startval and returns adjusted
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
       if (temp.Second < 60) temp.Second++; else temp.Second = 0;
-      delay(100);
+      delay(400);
     }
     SetTime = makeTime(temp);
   }
