@@ -243,7 +243,13 @@ void loop()
         break;
       case SHOWREEL:
         egg++;
-        if(egg>13){ light=OFF; state=EASTERPONG;}
+        if(egg>13){
+          Show = nothing;
+          fill_solid( leds, NUM_LEDS, CRGB::Black);
+          FastLED.show();
+          light=OFF;
+          state=EASTERPONG;
+          }
         break;
       case SWAKE:
         light = OFF;
