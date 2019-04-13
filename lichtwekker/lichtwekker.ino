@@ -89,7 +89,7 @@ void loop()
 
   switch (state) {
     case REST1:
-      Show = nothing;
+      Show = NULL;
       fill_solid( leds, NUM_LEDS, CRGB::Black);
       FastLED.show();
       state = REST2;
@@ -244,7 +244,7 @@ void loop()
       case SHOWREEL:
         egg++;
         if(egg>13){
-          Show = nothing;
+          Show = NULL;
           fill_solid( leds, NUM_LEDS, CRGB::Black);
           FastLED.show();
           light=OFF;
@@ -266,9 +266,6 @@ void nextPattern()
   // add one to the current pattern number, and wrap around at the end
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
 }
-
-void nothing() { // or could I use NULL?
-};
 
 void showtime(time_t TTS) { // TTS = Time To Show
   fill_solid( leds, NUM_LEDS, CRGB::Black);
@@ -495,11 +492,13 @@ void tick() {
   gHue++;    //for various visual effects
 
   if ( alset && hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
-    // TODO: more sofisticated fade-in and something that makes the weker go for longer then just that one second the times match.
     waking = 0; // reset wake animation
     state = SWAKE;
   };
 
-  Show();
-  FastLED.show();
+  if(Show != NULL){ // so it can be set to NULL to disable auto-refresh
+    Show();
+    FastLED.show();
+  }
+  
 }
