@@ -57,7 +57,7 @@ void setup() {
   //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
   AlarmTime = 7 * 3600 + 30 * 60;
 
-  setTime(7,29,56,1,1,1970);// for testing alarm
+  setTime(7, 29, 56, 1, 1, 1970); // for testing alarm
 
   pinMode(SW1, INPUT_PULLUP);
   pinMode(SW2, INPUT_PULLUP);
@@ -150,7 +150,7 @@ void loop()
       //light=LWAKE; // otherwise it turns off right again.
       Show = WakeAnim; // more sophisticated animation before turning lights on
       break;
-      case EASTERPONG:
+    case EASTERPONG:
       Pongloop();//  play pong
       break;
     default:
@@ -200,63 +200,64 @@ void loop()
       case EASTERPONG:
         egg = 0;
         state = SHOWTIME;
-        break;   
+        break;
       default:
         state = SETTIME;
     }
   }
-
-  if (digitalRead(SW2) == 0) {
-    while (digitalRead(SW2) == 0) delay(20); // wait for release
-    switch (state) {
-      case SHOWREEL:
-        egg = 0;
-        state = SHOWTIME;
-        break;
-      case SWAKE:
-        light = OFF;
-        state = SHOWTIME;
-        break;
-      default:
-        state = SETAL;
-    }
-  }
-
-
-  if (digitalRead(SW_TOP) == 0) {
-    while (digitalRead(SW_TOP) == 0) { // wait for release
-      delay(20); //debounce
-    }
-    switch (state) {
-      case REST2:
-        state = SHOWTIME;
-        if (light != OFF) light++;
-        break;
-      case SHOWTIME2:
-        light++;
-        egg++;
-        if (egg > 9) {
+  if (state != EASTERPONG) { // otherwise Pong cannot read the switches it needs
+    if (digitalRead(SW2) == 0) {
+      while (digitalRead(SW2) == 0) delay(20); // wait for release
+      switch (state) {
+        case SHOWREEL:
+          egg = 0;
+          state = SHOWTIME;
+          break;
+        case SWAKE:
           light = OFF;
-          autoreel = true;
-          state = SHOWREEL;
-        }
-        break;
-      case SHOWREEL:
-        egg++;
-        if(egg>13){
-          Show = NULL;
-          fill_solid( leds, NUM_LEDS, CRGB::Black);
-          FastLED.show();
-          light=OFF;
-          state=EASTERPONG;
+          state = SHOWTIME;
+          break;
+        default:
+          state = SETAL;
+      }
+    }
+
+
+    if (digitalRead(SW_TOP) == 0) {
+      while (digitalRead(SW_TOP) == 0) { // wait for release
+        delay(20); //debounce
+      }
+      switch (state) {
+        case REST2:
+          state = SHOWTIME;
+          if (light != OFF) light++;
+          break;
+        case SHOWTIME2:
+          light++;
+          egg++;
+          if (egg > 9) {
+            light = OFF;
+            autoreel = true;
+            state = SHOWREEL;
           }
-        break;
-      case SWAKE:
-        light = OFF;
-        state = SHOWTIME;
-        break;
-      default:
-        break;
+          break;
+        case SHOWREEL:
+          egg++;
+          if (egg > 13) {
+            Show = NULL;
+            fill_solid( leds, NUM_LEDS, CRGB::Black);
+            FastLED.show();
+            light = OFF;
+            state = EASTERPONG;
+          }
+          break;
+        case SWAKE:
+          light = OFF;
+          state = SHOWTIME;
+          break;
+        default:
+          break;
+      }
     }
   }
 }
@@ -344,7 +345,7 @@ void WakeAnim() {
   // todo: improve
   // idea: fade in red leds from bottom to top slowly, and as last step, turn on WW ledstrip.
   const uint8_t STEPS = 7; // number of fade-in steps per LED. 5 steps per second (refresh at 5 Hz), so between 3 and 15 are reasonable values? default 5.
-  const uint8_t BRADD = 255/STEPS; // how much brightness is added per step?
+  const uint8_t BRADD = 255 / STEPS; // how much brightness is added per step?
 
   if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
   if (waking <= (NUM_LEDS * STEPS)) waking++;
@@ -496,9 +497,9 @@ void tick() {
     state = SWAKE;
   };
 
-  if(Show != NULL){ // so it can be set to NULL to disable auto-refresh
+  if (Show != NULL) { // so it can be set to NULL to disable auto-refresh
     Show();
     FastLED.show();
   }
-  
+
 }
