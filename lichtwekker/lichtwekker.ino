@@ -129,13 +129,8 @@ void loop()
       */
 
 
-      //if(autoreel) EVERY_N_SECONDS( 10 ) { nextPattern(); }; // change patterns periodically (might be slower because/if millis is slower??)
-      // hah. the above should work but throws compiler errors unless expressed as:
-      if (autoreel) {
-        EVERY_N_SECONDS( 10 ) {
-          nextPattern();  // change patterns periodically (might be slower because/if millis is slower??)
-        };
-      }
+      if(autoreel){ EVERY_N_SECONDS( 10 ) nextPattern(); }; // change patterns periodically
+      
       break;
     case SWAKE:
       //light=LWAKE; // otherwise it turns off right again.
