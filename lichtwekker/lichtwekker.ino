@@ -178,7 +178,7 @@ void loop()
 
 
   if (digitalRead(SW1) == 0) {
-    while (digitalRead(SW1) == 0) delay(20); // wait for release
+    while (digitalRead(SW1) == 0) delay(100); // wait for release
     switch (state) {
       case SHOWREEL:
         nextPattern();
@@ -199,7 +199,7 @@ void loop()
   }
   if (state != EASTERPONG) { // otherwise Pong cannot read the switches it needs
     if (digitalRead(SW2) == 0) {
-      while (digitalRead(SW2) == 0) delay(20); // wait for release
+      while (digitalRead(SW2) == 0) delay(100); // wait for release
       switch (state) {
         case SHOWREEL:
           egg = 0;
@@ -218,7 +218,7 @@ void loop()
 
     if (digitalRead(SW_TOP) == 0) {
       while (digitalRead(SW_TOP) == 0) { // wait for release
-        delay(20); //debounce
+        delay(100); //debounce
       }
       switch (state) {
         case REST2:
@@ -263,7 +263,10 @@ void showtime(time_t TTS) { // TTS = Time To Show
   leds[NUM_LEDS - hour(TTS)] += CRGB::Green;
   leds[second(TTS)] += CRGB::DarkRed;
   leds[0] += indicator;
-  leds[59] += indicator;
+  leds[NUM_LEDS-1] += indicator;
+
+  for(uint8_t i=4;i<NUM_LEDS,i+=5){ leds[i] += CRGB(0,0,25)}; // scale / graticule
+  
 }
 
 void shownow() { // bit of a wraparound, because Show(); does not take arguments.
