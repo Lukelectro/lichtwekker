@@ -341,11 +341,19 @@ void WakeAnim() {
   const uint8_t BRADD = 255 / STEPS; // how much brightness is added per step?
 
   if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
-  if (waking <= (NUM_LEDS * STEPS)) waking++;
+  if (waking <= (NUM_LEDS * STEPS * 2)) waking++;
 
-  leds[(waking / STEPS)] += CHSV(HUE_RED, 255, BRADD); // todo: nicer lineair dimming/brightening?
+  // first dim up RED one by one, then green one by one (resulting in yellow-ish), then turn on the WW ledstrip.
+  if (waking < NUM_LEDS * STEPS){
+    leds[(waking / STEPS)] += CHSV(HUE_RED, 255, BRADD); // todo: nicer lineair dimming/brightening?
+  }
+  else
+  {
+   leds[(waking / STEPS)-NUM_LEDS] += CHSV(HUE_GREEN, 255, BRADD); // todo: nicer lineair dimming/brightening? 
+  }
+  
 
-  if (waking >= NUM_LEDS * STEPS) { // once the ws28 strip is lit
+  if (waking >= NUM_LEDS * STEPS * 2) { // once the ws28 strip is lit
     light = LWAKE;
   }
 }
