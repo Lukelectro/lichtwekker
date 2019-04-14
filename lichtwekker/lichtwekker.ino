@@ -265,7 +265,7 @@ void showtime(time_t TTS) { // TTS = Time To Show
   leds[0] += indicator;
   leds[NUM_LEDS-1] += indicator;
 
-  for(uint8_t i=4;i<NUM_LEDS,i+=5){ leds[i] += CRGB(0,0,25)}; // scale / graticule
+  for(uint8_t i=4;i<NUM_LEDS;i+=5){ leds[i] += CRGB(0,0,25);}; // scale / graticule
   
 }
 
@@ -295,6 +295,10 @@ time_t AdjustTime(time_t startval) { //starts from startval and returns adjusted
       if (temp.Hour < 24) temp.Hour++; else temp.Hour = 0;
       delay(400); 
     }
+      if (digitalRead(SW_TOP) == 0) {
+      if (temp.Hour > 0) temp.Hour--; else temp.Hour = 23;
+      delay(400); 
+    }
     SetTime = makeTime(temp);
   }
 
@@ -305,6 +309,10 @@ time_t AdjustTime(time_t startval) { //starts from startval and returns adjusted
       if (temp.Minute < 60) temp.Minute++; else temp.Minute = 0;
       delay(400);
     }
+     if (digitalRead(SW_TOP) == 0) {
+      if (temp.Minute > 0) temp.Minute--; else temp.Minute = 59;
+      delay(400); 
+    }
     SetTime = makeTime(temp);
   }
 
@@ -314,6 +322,10 @@ time_t AdjustTime(time_t startval) { //starts from startval and returns adjusted
     if (digitalRead(SW1) == 0) {
       if (temp.Second < 60) temp.Second++; else temp.Second = 0;
       delay(400);
+    }
+      if (digitalRead(SW_TOP) == 0) {
+        if (temp.Second > 0) temp.Second--; else temp.Second = 59;
+      delay(400); 
     }
     SetTime = makeTime(temp);
   }
