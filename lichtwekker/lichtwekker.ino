@@ -185,15 +185,12 @@ void loop()
   if (digitalRead(SW1) == 0) {
     while (digitalRead(SW1) == 0) delay(100); // wait for release
     switch (state) {
-      case SHOWREEL:
-        nextPattern();
-        autoreel = false;
-        break;
       case SWAKE:
         egg = 0;
         light = OFF;
         state = SHOWTIME;
         break;
+      case SHOWREEL:
       case EASTERPONG:
         egg = 0;
         state = SHOWTIME;
@@ -203,12 +200,13 @@ void loop()
     }
   }
   if (state != EASTERPONG) { // otherwise Pong cannot read the switches it needs
+   
     if (digitalRead(SW2) == 0) {
       while (digitalRead(SW2) == 0) delay(100); // wait for release
       switch (state) {
         case SHOWREEL:
-          egg = 0;
-          state = SHOWTIME;
+          nextPattern();
+          autoreel = false;
           break;
         case SWAKE:
           egg = 0;
