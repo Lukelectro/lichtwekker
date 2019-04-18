@@ -102,8 +102,9 @@ void loop()
 
       if (alset) indicator = CRGB::DarkGoldenrod; else indicator = CRGB::Black;
 
-      //automatically go dark after e.g. 30s unless set not to
-      if (((now() - toutcomp) > TIMEOUT ) && light != TIME ) { 
+      //automatically go dark after e.g. 30s but only if light is OFF
+      //(there is a way to use the time display as a light) 
+      if (((now() - toutcomp) > TIMEOUT ) && light == OFF ) { 
         state = REST1;
       }
 
@@ -167,7 +168,8 @@ void loop()
       digitalWrite(CW_LEDS, HIGH);
       break;
     case TIME:
-      light = OFF;
+      digitalWrite(WW_LEDS, LOW);
+      digitalWrite(CW_LEDS, LOW);
       break;
     case RST:
       state = REST1;
@@ -265,8 +267,10 @@ void showtime(time_t TTS) { // TTS = Time To Show
   leds[0] += indicator;
   leds[NUM_LEDS-1] += indicator;
 
-  for(uint8_t i=5;i<NUM_LEDS-1;i+=5){ leds[i] += CRGB(0,0,15);}; // scale / graticule
-  
+  for(uint8_t i=5;i<NUM_LEDS-1;i+=5){// scale / graticule, also indicator for "display auto-off"
+    if(light==TIME) leds[i] += CRGB(0,0,10); else leds[i] += CRGB(0,7,8);
+    }; 
+    
 }
 
 void shownow() { // bit of a wraparound, because Show(); does not take arguments.
