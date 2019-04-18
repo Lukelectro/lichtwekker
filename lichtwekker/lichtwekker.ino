@@ -364,7 +364,8 @@ void WakeAnim() {
 
   if (waking >= NUM_LEDS * STEPS * 2) { // once the ws28 strip is lit
     light = LWAKE;
-    Show=rainbowWithGlitter; // after wake-up animation, go rainbow. why not?
+    //Show=rainbowWithGlitter; // after wake-up animation, go rainbow. why not?
+    // because that won't work
   }
 }
 
