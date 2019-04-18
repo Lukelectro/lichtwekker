@@ -186,10 +186,7 @@ void loop()
     while (digitalRead(SW1) == 0) delay(100); // wait for release
     switch (state) {
       case SWAKE:
-        egg = 0;
         light = OFF;
-        state = SHOWTIME;
-        break;
       case SHOWREEL:
       case EASTERPONG:
         egg = 0;
