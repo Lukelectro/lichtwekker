@@ -1,6 +1,8 @@
 // lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
 // also re-uses FastLED demo reel.
-const int TIMEOUT = 30;
+const int TIMEOUT = 30; // time-out for time display
+const int EGGOUT = 7; // time-out for showreel/pong entry
+
 
 #include <FastLED.h>
 #include <mTime.h>             // use modified time.h lib. (Uses timer1 interrupt instead of milis -
@@ -33,7 +35,7 @@ CRGB indicator = CRGB::Black;
 fpointer Show = sinelon; // Set this pointer to what function should be called just before a refresh in tick();
 
 enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE, EASTERPONG};
-enum LSTATE {OFF, WW, CW, CWW, RST, LWAKE};
+enum LSTATE {OFF, WW, CW, CWW, TIME, RST, LWAKE};
 
 uint8_t light = OFF, state = SHOWTIME;
 
@@ -74,9 +76,13 @@ void loop()
 {
 
   static int egg = 0;
-  static time_t compare;
+  static time_t toutcomp, eoutcomp;
   static bool autoreel = true;
 
+  if (now() - eoutcomp > EGGOUT){
+    eoutcomp=now();
+    egg=0;
+  }
 
   switch (state) {
     case REST1:
@@ -88,7 +94,7 @@ void loop()
     case REST2:
       break;
     case SHOWTIME:
-      compare = now();
+      toutcomp = now();
       Show = shownow;
       state = SHOWTIME2;
       break;
@@ -96,9 +102,9 @@ void loop()
 
       if (alset) indicator = CRGB::DarkGoldenrod; else indicator = CRGB::Black;
 
-      if (now() - compare > TIMEOUT) { //na b.v. 5 seconden
+      //automatically go dark after e.g. 30s unless set not to
+      if (((now() - toutcomp) > TIMEOUT ) && light != TIME ) { 
         state = REST1;
-        egg = 0;
       }
 
       break;
@@ -160,7 +166,11 @@ void loop()
       digitalWrite(WW_LEDS, HIGH);
       digitalWrite(CW_LEDS, HIGH);
       break;
+    case TIME:
+      light = OFF;
+      break;
     case RST:
+      state = REST1;
       light = OFF;
       break;
     case LWAKE:
