@@ -270,7 +270,7 @@ void showtime(time_t TTS) { // TTS = Time To Show
   leds[0] += indicator;
   leds[NUM_LEDS-1] += indicator;
 
-  for(uint8_t i=4;i<NUM_LEDS-1;i+=5){ leds[i] += CRGB(0,0,25);}; // scale / graticule
+  for(uint8_t i=5;i<NUM_LEDS-1;i+=5){ leds[i] += CRGB(0,0,15);}; // scale / graticule
   
 }
 
