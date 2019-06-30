@@ -13,7 +13,7 @@ FASTLED_USING_NAMESPACE
 #include "fire.h"
 #include "showreel.h"
 
-
+#define FREQ_2_5_HZ_OUT 13
 #define SW_TOP 5
 #define SW1 4
 #define SW2 6
@@ -56,6 +56,7 @@ void setup() {
   pinMode(SW_TOP, INPUT_PULLUP);
   pinMode(CW_LEDS, OUTPUT);
   pinMode(WW_LEDS, OUTPUT);
+  pinMode(FREQ_2_5_HZ_OUT, OUTPUT);
 
   Pongsetup();
 
@@ -372,6 +373,8 @@ void WakeAnim() {
 void tick() {
   // Will be called at 5Hz.
 
+  static bool freqout = 0;
+
   gHue++;    //for various visual effects
 
   if ( alset && hour(AlarmTime) == hour() && minute(AlarmTime) == minute() && second(AlarmTime) == second() ) {
@@ -383,5 +386,8 @@ void tick() {
     Show();
     FastLED.show();
   }
+
+  digitalWrite(FREQ_2_5_HZ_OUT, freqout); // 2.5 Hz output (To check for off-by-ones or to tune (xtal) oscilator (load c)).s
+  freqout != freqout;
 
 }
