@@ -19,6 +19,10 @@ FASTLED_USING_NAMESPACE
 
 #define SCL 5
 #define SDA 4
+/* 
+ * Hmm, turns out some of the pinouts on the internet are wrong, whodatunkit? 
+ * I2C is on ANALOG pin 4 and 5. Moving switches was not nescesairy. Oh well..
+*/
 
 #define SW2 6
 
