@@ -47,9 +47,9 @@ void setup() {
   delay(3000); // 3 second delay for recovery
 
   //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
-  AlarmTime = 7 * 3600 + 30 * 60;
+  AlarmTime = 6 * 3600 + 30 * 60;
 
-  setTime(7, 29, 56, 1, 1, 1970); // for testing alarm
+  setTime(6, 29, 56, 1, 1, 1970); // for testing alarm
 
   pinMode(SW1, INPUT_PULLUP);
   pinMode(SW2, INPUT_PULLUP);
@@ -388,6 +388,7 @@ void tick() {
   }
 
   digitalWrite(FREQ_2_5_HZ_OUT, freqout); // 2.5 Hz output (To check for off-by-ones or to tune (xtal) oscilator (load c)).s
-  freqout != freqout;
+  freqout = !freqout;                     // result: 2.5045 Hz, on my cheap arduino Nano clone. 
+  // So that would be 16.0288 MHz, or an error in the divider. Or my frequency meter is not accurate. Meh. Will use a real time clock anyway, for battery backup.
 
 }
