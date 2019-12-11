@@ -14,8 +14,12 @@ FASTLED_USING_NAMESPACE
 #include "showreel.h"
 
 
-#define SW_TOP 5
-#define SW1 4
+#define SW_TOP 3
+#define SW1 2
+
+#define SCL 5
+#define SDA 4
+
 #define SW2 6
 
 #define CW_LEDS 9
@@ -47,13 +51,15 @@ void setup() {
   delay(3000); // 3 second delay for recovery
 
   //AlarmTime = (minutesToTime_t(30) + hoursToTime_t(7);
-  AlarmTime = 7 * 3600 + 30 * 60;
+  AlarmTime = 6 * 3600 + 30 * 60;
 
-  setTime(7, 29, 56, 1, 1, 1970); // for testing alarm
+  setTime(6, 29, 56, 1, 1, 1970); // for testing alarm
 
   pinMode(SW1, INPUT_PULLUP);
   pinMode(SW2, INPUT_PULLUP);
   pinMode(SW_TOP, INPUT_PULLUP);
+  pinMode(SDA, INPUT_PULLUP);
+  pinMode(SCL, INPUT_PULLUP);
   pinMode(CW_LEDS, OUTPUT);
   pinMode(WW_LEDS, OUTPUT);
 
