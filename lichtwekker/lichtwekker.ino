@@ -1,10 +1,12 @@
-// lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
-// also re-uses FastLED demo reel.
-// uses DS3231MZ, do note: with battery backup time is kept on power failure, but wake-up time is reset to default 6:30 on bootup!
-
-const unsigned int TIMEOUT = 30*5; // time-out for time display, in 1/5s , max 255 (=51s) 
-const unsigned int EGGOUT = 7*5; // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
-const unsigned int DEBOUNCE = 200; /* these buttons bounce horribly long */
+/* 
+ * lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
+ * also re-uses FastLED demo reel and fire2012
+ * uses DS3231MZ, do note: with battery backup time is kept on power failure, but wake-up time is reset to default 6:30 on bootup!
+ */
+ 
+const unsigned int TIMEOUT = 30 * 5;  // time-out for time display, in 1/5s , max 255 (=51s)
+const unsigned int EGGOUT = 7 * 5;    // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
+const unsigned int DEBOUNCE = 200;    // these buttons bounce horribly long
 
 #include <FastLED.h>
 FASTLED_USING_NAMESPACE
@@ -27,7 +29,7 @@ FASTLED_USING_NAMESPACE
 #define WW_LEDS 8
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
-#define NUM_LEDS    60 /* time display won' t work unless you are using at least 60 led's */
+#define NUM_LEDS    60 // time display won' t work unless you are using at least 60 led's
 CRGB leds[NUM_LEDS];
 
 #define BRIGHTNESS 128 // set max brightness to limit power consumption.
@@ -50,7 +52,7 @@ enum LSTATE {OFF, WW, CW, CWW, TIME, RST, LWAKE};
 uint8_t light = OFF, state = SHOWTIME;
 
 unsigned int waking = 0;
-volatile unsigned char tick5Hz_8bit; /* because millis() is b0rked */
+volatile unsigned char tick5Hz_8bit; // because millis() is b0rked
 
 bool alset = true;    // alarm set or not?
 bool readRTC = false; // to indicate RTC needs to get read again
@@ -80,29 +82,29 @@ void setup() {
   // set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
 
-// Destroy Arduino's timer config (Standard it is configured for PWM which I don't use, but I need a 5 Hz interrupt for screen refresh and previously for timekeeping)
-cli();
-TCCR1A=0; // 0, and not 1 (WGM10/8bit PWM, the standard config that gives trouble here.)
-TCNT1=0; // clear timer (to prevent Arduino restoring its unwanted PWM config on timer overflow)
-TCCR1B=0;
-TCCR1C=0;
+  // Destroy Arduino's timer config (Standard it is configured for PWM which I don't use, but I need a 5 Hz interrupt for screen refresh and previously for timekeeping)
+  cli();
+  TCCR1A = 0; // 0, and not 1 (WGM10/8bit PWM, the standard config that gives trouble here.)
+  TCNT1 = 0;  // clear timer (to prevent Arduino restoring its unwanted PWM config on timer overflow)
+  TCCR1B = 0;
+  TCCR1C = 0;
 
-OCR1A = 0x0C34; // 16Mhz / (1024 * 3125) = 5 Hz (0x0C34 = 3124, because it counts from 0-3124 like prescaler counts from 0-1023)
-TCCR1B = 0x0D; // clk/1024, CTC mode
+  OCR1A = 0x0C34; // 16Mhz / (1024 * 3125) = 5 Hz (0x0C34 = 3124, because it counts from 0-3124 like prescaler counts from 0-1023)
+  TCCR1B = 0x0D;  // clk/1024, CTC mode
 
-TIMSK1 = 0x02; // enable OC1A interrupt
-sei();
+  TIMSK1 = 0x02;  // enable OC1A interrupt
+  sei();
 }
 
-ISR(TIMER1_COMPA_vect){
-  // Will be called at 5Hz 
-  
+ISR(TIMER1_COMPA_vect) {
+  // Will be called at 5Hz
+
   gHue++;    //for various visual effects
   tick5Hz_8bit++;
-  
- // RTC.readTime(); /* aparently either cannot be called from within interrupt, or is too slow...*/
-    readRTC=true;   /* so set a flag and let main read it instead */
-  
+
+  // RTC.readTime(); /* aparently either cannot be called from within interrupt, or is too slow...*/
+  readRTC = true;    /* so set a flag and let main read it instead */
+
   if ( alset && AlarmTime.h == RTC.h && AlarmTime.m == RTC.m && AlarmTime.s == RTC.s ) {
     waking = 0; // reset wake animation
     state = SWAKE;
@@ -127,13 +129,13 @@ void loop()
     egg = 0;
   }
 
-  if(readRTC){ /* flag set in interrupt */
-      RTC.readTime();
-      currenttime.h=RTC.h;
-      currenttime.m=RTC.m;
-      currenttime.s=RTC.s;
-      readRTC = false;
-    }
+  if (readRTC) { /* flag set in interrupt */
+    RTC.readTime();
+    currenttime.h = RTC.h;
+    currenttime.m = RTC.m;
+    currenttime.s = RTC.s;
+    readRTC = false;
+  }
 
   switch (state) {
     case REST1:
@@ -164,9 +166,9 @@ void loop()
       indicator = CRGB::LightGoldenrodYellow;
       Show = shownow;
       currenttime = AdjustTime(currenttime);
-      RTC.h=currenttime.h;
-      RTC.m=currenttime.m;
-      RTC.s=currenttime.s;
+      RTC.h = currenttime.h;
+      RTC.m = currenttime.m;
+      RTC.s = currenttime.s;
       RTC.writeTime();
       state = SHOWTIME;
       break;
@@ -178,13 +180,13 @@ void loop()
       state = SHOWTIME;
       break;
     case SHOWREEL:
-      
-        Show = NULL;// disable automatic 5s refresh (Note: the interrupt itself keeps running! it just does not call Show when Show is a NULL pointer)
-        gPatterns[gCurrentPatternNumber](); // call the patern
-        delay(40);// 25 fps / do not starve timekeeping timer interrupt
-        FastLED.show();
-        gHue++; /* some effects base their hue on this, and increasing it 5Hz is barely perciptible, 25 Hz is a much more apealing effect */
-      
+
+      Show = NULL;// disable automatic 5s refresh (Note: the interrupt itself keeps running! it just does not call Show when Show is a NULL pointer)
+      gPatterns[gCurrentPatternNumber](); // call the patern
+      delay(40);// 25 fps / do not starve timekeeping timer interrupt
+      FastLED.show();
+      gHue++;   // some effects base their hue on this, and increasing it 5Hz is barely perciptible, 25 Hz is a much more apealing effect
+
 
 
       if (autoreel) {
@@ -193,10 +195,10 @@ void loop()
 
       break;
     case SWAKE:
-      Show = WakeAnim; // more sophisticated animation before turning lights on
+      Show = WakeAnim;  // more sophisticated animation before turning lights on
       break;
     case EASTERPONG:
-      Pongloop();//  play pong
+      Pongloop();       //play pong
       break;
     default:
       state = SHOWTIME;
@@ -315,9 +317,9 @@ void showtime(hms TTS) { // TTS = Time To Show
   fill_solid( leds, NUM_LEDS, CRGB::Black);
   leds[TTS.m] += CRGB::DarkRed;
   leds[NUM_LEDS - TTS.h] += CRGB::Green;
-       leds[TTS.s] += CRGB::DarkRed;
-       leds[0] += indicator;
-       leds[NUM_LEDS - 1] += indicator;
+  leds[TTS.s] += CRGB::DarkRed;
+  leds[0] += indicator;
+  leds[NUM_LEDS - 1] += indicator;
 
   for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, also indicator for "display auto-off"
     if (light == TIME) leds[i] += CRGB(0, 0, 10); else leds[i] += CRGB(0, 7, 8);
@@ -352,8 +354,8 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
       if (startval.h > 0) startval.h--; else startval.h = 23;
       delay(400);
     }
-    
-  SetTime = startval; /* copy so it can be displayed */
+
+    SetTime = startval; /* copy so it can be displayed */
   }
 
   while (digitalRead(SW2) == 0) delay(DEBOUNCE);
@@ -367,8 +369,8 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
       if (startval.m > 0) startval.m--; else startval.m = 59;
       delay(400);
     }
-    
-  SetTime = startval; /* copy so it can be displayed */
+
+    SetTime = startval; /* copy so it can be displayed */
   }
 
   while (digitalRead(SW2) == 0) delay(DEBOUNCE);
@@ -382,8 +384,8 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
       if (startval.s > 0) startval.s--; else startval.s = 59;
       delay(400);
     }
-  
-  SetTime = startval; /* copy so it can be displayed */
+
+    SetTime = startval; /* copy so it can be displayed */
   }
 
   while (digitalRead(SW2) == 0) delay(DEBOUNCE);
@@ -391,14 +393,14 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   indicator = CRGB::Black; // Whoa. Then how to indicate that alarm is set?
   //if(AlarmSet) indicator = CRGB::Red; else indicator=CRGB::Black // something like that?
   //AlarmSet?indicator:CRGB::Red:CRGB::Black; // unreadable... But shorter
-  return startval; /* after modification */
+  return startval;        //after modification
 }
 
 void WakeAnim() {
   // wake- up animation...
   // todo: improve
   // idea: fade in red leds from bottom to top slowly, and as last step, turn on WW ledstrip.
-  const uint8_t STEPS = 7; // number of fade-in steps per LED. 5 steps per second (refresh at 5 Hz), so between 3 and 15 are reasonable values? default 5.
+  const uint8_t STEPS = 7; // number of fade-in steps per LED. 5 steps per second (refresh at 5 Hz), so between 3 and 15 are reasonable values.
   const uint8_t BRADD = 255 / STEPS; // how much brightness is added per step?
 
   if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
@@ -415,8 +417,8 @@ void WakeAnim() {
 
 
   if (waking >= NUM_LEDS * STEPS * 2) { // once the ws28 strip is lit
-    light = LWAKE;
-    //Show=rainbowWithGlitter; // after wake-up animation, go rainbow. why not?
-    // because that won't work
+    light = LWAKE;        // turn on the lights
+    rainbowWithGlitter(); // and go rainbow. With glitter. That ought to wake you!
+    
   }
 }
