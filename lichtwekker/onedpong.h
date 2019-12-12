@@ -25,9 +25,9 @@
 FASTLED_USING_NAMESPACE
 #define NELEM(x)		(sizeof(x) / sizeof((x)[0]))
 
-#define DATA_PIN		7		// LED data
-#define PIN_BUT_RS		5		// Right start/hit button (SW_TOP)
-#define PIN_BUT_LS		6		// Left start/hit button (SW2)
+#define DATA_PIN		7     // LED data
+#define PIN_BUT_RS		3		// Right start/hit button (SW_TOP)
+#define PIN_BUT_LS		6	  // Left start/hit button (SW2)
 #define PIN_BUT_LP -1
 #define PIN_BUT_RP -1
 

@@ -1,7 +1,10 @@
 // lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
 // also re-uses FastLED demo reel.
-const unsigned int TIMEOUT = 30000; // time-out for time display, now in millis
-const unsigned int EGGOUT = 7000; // time-out for showreel/pong entry, now in millis
+// uses DS3231MZ, do note: with battery backup time is kept on power failure, but wake-up time is reset to default 6:30 on bootup!
+
+const unsigned int TIMEOUT = 30*5; // time-out for time display, in 1/5s , max 255 (=51s) 
+const unsigned int EGGOUT = 7*5; // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
+const unsigned int DEBOUNCE = 200; /* these buttons bounce horribly long */
 
 #include <FastLED.h>
 FASTLED_USING_NAMESPACE
@@ -11,19 +14,17 @@ FASTLED_USING_NAMESPACE
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
-
 #include "onedpong.h"
 #include "fire.h"
 #include "showreel.h"
 
-
+/* when modifying switch or led data pins, also modify them in onedpong.h */
 #define SW_TOP 3
 #define SW1 2
 #define SW2 6
-
+#define DATA_PIN 7
 #define CW_LEDS 9
 #define WW_LEDS 8
-#define DATA_PIN    7
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
 #define NUM_LEDS    60 /* time display won' t work unless you are using at least 60 led's */
@@ -49,6 +50,7 @@ enum LSTATE {OFF, WW, CW, CWW, TIME, RST, LWAKE};
 uint8_t light = OFF, state = SHOWTIME;
 
 unsigned int waking = 0;
+volatile unsigned char tick5Hz_8bit; /* because millis() is b0rked */
 
 bool alset = true;    // alarm set or not?
 bool readRTC = false; // to indicate RTC needs to get read again
@@ -96,6 +98,7 @@ ISR(TIMER1_COMPA_vect){
   // Will be called at 5Hz 
   
   gHue++;    //for various visual effects
+  tick5Hz_8bit++;
   
  // RTC.readTime(); /* aparently either cannot be called from within interrupt, or is too slow...*/
     readRTC=true;   /* so set a flag and let main read it instead */
@@ -115,11 +118,12 @@ ISR(TIMER1_COMPA_vect){
 void loop()
 {
 
-  static unsigned int egg = 0, timeoutmills, eggoutmills;
+  static unsigned int egg = 0;
+  static unsigned char timeout, eggout;
   static bool autoreel = true;
 
-  if ( (millis() - eggoutmills) > EGGOUT) {
-    eggoutmills = millis();
+  if ( (tick5Hz_8bit - eggout) > EGGOUT) {
+    eggout = tick5Hz_8bit;
     egg = 0;
   }
 
@@ -141,7 +145,7 @@ void loop()
     case REST2:
       break;
     case SHOWTIME:
-      timeoutmills = millis();
+      timeout = tick5Hz_8bit;
       Show = shownow;
       state = SHOWTIME2;
       break;
@@ -151,7 +155,7 @@ void loop()
 
       //automatically go dark after e.g. 30s but only if light is OFF
       //(there is a way to use the time display as a light)
-      if (((millis() - timeoutmills) > TIMEOUT ) && light == OFF ) {
+      if (((tick5Hz_8bit - timeout) > TIMEOUT ) && light == OFF ) {
         state = REST1;
       }
 
@@ -174,17 +178,13 @@ void loop()
       state = SHOWTIME;
       break;
     case SHOWREEL:
-      // todo: show fastled showreel / use buttons to choose which effect or auto-rotate
-      //Show=sinelon;
-      Show = gPatterns[gCurrentPatternNumber];
-
-      // might want to call fastled.show() more often for smoother display... but below is not the right way
-      /*
-        Show = nothing;// diable automatic 5s refresh
-        gPatterns[gCurrentPatternNumber]; // call the patern
-        delay(1000/30);// 30 fps / do not starve timekeeping timer interrupt
+      
+        Show = NULL;// disable automatic 5s refresh (Note: the interrupt itself keeps running! it just does not call Show when Show is a NULL pointer)
+        gPatterns[gCurrentPatternNumber](); // call the patern
+        delay(40);// 25 fps / do not starve timekeeping timer interrupt
         FastLED.show();
-      */
+        gHue++; /* some effects base their hue on this, and increasing it 5Hz is barely perciptible, 25 Hz is a much more apealing effect */
+      
 
 
       if (autoreel) {
@@ -193,7 +193,6 @@ void loop()
 
       break;
     case SWAKE:
-      //light=LWAKE; // otherwise it turns off right again.
       Show = WakeAnim; // more sophisticated animation before turning lights on
       break;
     case EASTERPONG:
@@ -238,7 +237,7 @@ void loop()
 
 
   if (digitalRead(SW1) == 0) {
-    while (digitalRead(SW1) == 0) delay(100); // wait for release
+    while (digitalRead(SW1) == 0) delay(DEBOUNCE); // wait for release
     switch (state) {
       case SWAKE:
         light = OFF;
@@ -254,7 +253,7 @@ void loop()
   if (state != EASTERPONG) { // otherwise Pong cannot read the switches it needs
 
     if (digitalRead(SW2) == 0) {
-      while (digitalRead(SW2) == 0) delay(100); // wait for release
+      while (digitalRead(SW2) == 0) delay(DEBOUNCE); // wait for release
       switch (state) {
         case SHOWREEL:
           nextPattern();
@@ -273,7 +272,7 @@ void loop()
 
     if (digitalRead(SW_TOP) == 0) {
       while (digitalRead(SW_TOP) == 0) { // wait for release
-        delay(100); //debounce
+        delay(DEBOUNCE); //debounce
       }
       switch (state) {
         case REST2:
@@ -342,7 +341,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
 
   Show = showAdj;
 
-  while ( digitalRead(SW1) == 0 || digitalRead(SW2) == 0 ) delay(150);
+  while ( digitalRead(SW1) == 0 || digitalRead(SW2) == 0 ) delay(DEBOUNCE);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
@@ -357,7 +356,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   SetTime = startval; /* copy so it can be displayed */
   }
 
-  while (digitalRead(SW2) == 0) delay(150);
+  while (digitalRead(SW2) == 0) delay(DEBOUNCE);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
@@ -372,7 +371,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   SetTime = startval; /* copy so it can be displayed */
   }
 
-  while (digitalRead(SW2) == 0) delay(150);
+  while (digitalRead(SW2) == 0) delay(DEBOUNCE);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
@@ -387,7 +386,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   SetTime = startval; /* copy so it can be displayed */
   }
 
-  while (digitalRead(SW2) == 0) delay(150);
+  while (digitalRead(SW2) == 0) delay(DEBOUNCE);
 
   indicator = CRGB::Black; // Whoa. Then how to indicate that alarm is set?
   //if(AlarmSet) indicator = CRGB::Red; else indicator=CRGB::Black // something like that?
