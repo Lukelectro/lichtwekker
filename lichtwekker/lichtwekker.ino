@@ -8,6 +8,9 @@ FASTLED_USING_NAMESPACE
 
 #include <MD_DS3231.h>
 #include <Wire.h>
+#include <avr/interrupt.h>
+#include <avr/io.h>
+
 
 #include "onedpong.h"
 #include "fire.h"
@@ -47,7 +50,8 @@ uint8_t light = OFF, state = SHOWTIME;
 
 unsigned int waking = 0;
 
-bool alset = true; // alarm set or not?
+bool alset = true;    // alarm set or not?
+bool readRTC = false; // to indicate RTC needs to get read again
 
 void setup() {
   delay(3000); // 3 second delay for recovery
@@ -74,7 +78,7 @@ void setup() {
   // set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
 
-// Destroy Arduino's hidden timer config (Standard it is configured for PWM which I don't use, but I need a 5 Hz interrupt for screen refresh and previously for timekeeping)
+// Destroy Arduino's timer config (Standard it is configured for PWM which I don't use, but I need a 5 Hz interrupt for screen refresh and previously for timekeeping)
 cli();
 TCCR1A=0; // 0, and not 1 (WGM10/8bit PWM, the standard config that gives trouble here.)
 TCNT1=0; // clear timer (to prevent Arduino restoring its unwanted PWM config on timer overflow)
@@ -83,21 +87,20 @@ TCCR1C=0;
 
 OCR1A = 0x0C34; // 16Mhz / (1024 * 3125) = 5 Hz (0x0C34 = 3124, because it counts from 0-3124 like prescaler counts from 0-1023)
 TCCR1B = 0x0D; // clk/1024, CTC mode
+
 TIMSK1 = 0x02; // enable OC1A interrupt
 sei();
 }
 
-SIGNAL(TIMER1_COMPA_vect){
-  // Will be called at 5Hz
+ISR(TIMER1_COMPA_vect){
+  // Will be called at 5Hz 
   
   gHue++;    //for various visual effects
   
-  RTC.readTime();
-  currenttime.h = RTC.h;
-  currenttime.m = RTC.m;
-  currenttime.s = RTC.s;
-
-  if ( alset && AlarmTime.h == currenttime.h && AlarmTime.m == currenttime.m && AlarmTime.s == currenttime.s ) {
+ // RTC.readTime(); /* aparently either cannot be called from within interrupt, or is too slow...*/
+    readRTC=true;   /* so set a flag and let main read it instead */
+  
+  if ( alset && AlarmTime.h == RTC.h && AlarmTime.m == RTC.m && AlarmTime.s == RTC.s ) {
     waking = 0; // reset wake animation
     state = SWAKE;
   };
@@ -108,6 +111,7 @@ SIGNAL(TIMER1_COMPA_vect){
   }
 
 }
+
 void loop()
 {
 
@@ -118,6 +122,14 @@ void loop()
     eggoutmills = millis();
     egg = 0;
   }
+
+  if(readRTC){ /* flag set in interrupt */
+      RTC.readTime();
+      currenttime.h=RTC.h;
+      currenttime.m=RTC.m;
+      currenttime.s=RTC.s;
+      readRTC = false;
+    }
 
   switch (state) {
     case REST1:
