@@ -14,8 +14,8 @@ FASTLED_USING_NAMESPACE
 #include "showreel.h"
 
 
-#define SW_TOP 5
-#define SW1 4
+#define SW_TOP 3
+#define SW1 2
 #define SW2 6
 
 #define CW_LEDS 9
