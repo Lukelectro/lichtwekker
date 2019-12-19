@@ -319,11 +319,19 @@ void showtime(hms TTS) { // TTS = Time To Show
   leds[NUM_LEDS - TTS.h] += CRGB::Green;
   leds[TTS.s] += CRGB::DarkRed;
   leds[0] += indicator;
-  leds[NUM_LEDS - 1] += indicator;
+  //leds[NUM_LEDS - 1] += indicator; /* only 1 indicator*/
 
-  for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, also indicator for "display auto-off"
-    if (light == TIME) leds[i] += CRGB(0, 0, 10); else leds[i] += CRGB(0, 7, 8);
+  for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, small ticks (5m).
+    leds[i] += CRGB(0, 0, 8);
   };
+  
+  for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) { // scale / graticule, big ticks (15m)
+    leds[i] += CRGB(4, 0, 0);
+  };
+
+  if (light == TIME){        // when not automatically turning off:
+    leds[30] += CRGB(4,4,4); // indicate on 30 minute tick  
+    }
 
 }
 
