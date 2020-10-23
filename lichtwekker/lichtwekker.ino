@@ -1,12 +1,12 @@
-/* 
- * lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
- * also re-uses FastLED demo reel and fire2012
- * uses DS3231MZ, do note: with battery backup time is kept on power failure, but wake-up time is reset to default 6:30 on bootup!
- */
- 
-const unsigned int TIMEOUT = 30 * 5;  // time-out for time display, in 1/5s , max 255 (=51s)
-const unsigned int EGGOUT = 7 * 5;    // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
-const unsigned int DEBOUNCE = 200;    // these buttons bounce horribly long
+/*
+   lichtwekker. Uses Digitalread etc. even though slower. Excuse is to easily port to other 'duino's or change pinout. (It's not lazyness! PIND&=1<<7 is actually shorter!)
+   also re-uses FastLED demo reel and fire2012
+   uses DS3231MZ, do note: with battery backup time is kept on power failure, but wake-up time is reset to default 6:30 on bootup!
+*/
+
+const unsigned char TIMEOUT = 25 * 5; // time-out for time display, in 1/5s , max 255 (=51s)
+const unsigned int EGGOUT = 8 * 5;    // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
+const unsigned int DEBOUNCE = 150;    // these buttons bounce horribly long
 
 #include <FastLED.h>
 FASTLED_USING_NAMESPACE
@@ -46,10 +46,10 @@ CRGB indicator = CRGB::Black;
 
 fpointer Show = sinelon; // Set this pointer to what function should be called just before a refresh in tick();
 
-enum {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE, EASTERPONG};
-enum LSTATE {OFF, WW, CW, CWW, TIME, RST, LWAKE};
+enum RGBSTATE {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE, EASTERPONG} state;
+enum WSTATE {OFF, WW, CW, CWW, TIME, RST, LWAKE} light;
+#define NEXTLIGHT  do{(light<RST)?light=light+1:light=OFF;}while(0); /* Go to next light LSTATE, wrap to first LSTATE*/
 
-uint8_t light = OFF, state = SHOWTIME;
 
 unsigned int waking = 0;
 volatile unsigned char tick5Hz_8bit; // because millis() is b0rked
@@ -155,9 +155,9 @@ void loop()
 
       if (alset) indicator = CRGB::DarkGoldenrod; else indicator = CRGB::Black;
 
-      //automatically go dark after e.g. 30s but only if light is OFF
+      //automatically go dark after e.g. 25s but only if light is OFF
       //(there is a way to use the time display as a light)
-      if (((tick5Hz_8bit - timeout) > TIMEOUT ) && light == OFF ) {
+      if ( (light == OFF) && ( (unsigned char) (tick5Hz_8bit - timeout) >= TIMEOUT) ) {
         state = REST1;
       }
 
@@ -224,9 +224,10 @@ void loop()
     case TIME:
       digitalWrite(WW_LEDS, LOW);
       digitalWrite(CW_LEDS, LOW);
+      /* use the time display on RGB strip as a light, without using the CWWW strip */
       break;
     case RST:
-      state = REST1;
+      state = REST1; /* So also turn time display off when resetting lights to off*/
       light = OFF;
       break;
     case LWAKE:
@@ -239,7 +240,11 @@ void loop()
 
 
   if (digitalRead(SW1) == 0) {
-    while (digitalRead(SW1) == 0) delay(DEBOUNCE); // wait for release
+    while (digitalRead(SW1) == 0) {
+      delay(DEBOUNCE); // wait for release
+    }
+    delay(DEBOUNCE);
+
     switch (state) {
       case SWAKE:
         light = OFF;
@@ -255,7 +260,11 @@ void loop()
   if (state != EASTERPONG) { // otherwise Pong cannot read the switches it needs
 
     if (digitalRead(SW2) == 0) {
-      while (digitalRead(SW2) == 0) delay(DEBOUNCE); // wait for release
+      while (digitalRead(SW2) == 0) {
+        delay(DEBOUNCE); // wait for release
+      }
+      delay(DEBOUNCE);
+
       switch (state) {
         case SHOWREEL:
           nextPattern();
@@ -273,16 +282,17 @@ void loop()
 
 
     if (digitalRead(SW_TOP) == 0) {
-      while (digitalRead(SW_TOP) == 0) { // wait for release
-        delay(DEBOUNCE); //debounce
+      while (digitalRead(SW_TOP) == 0) {
+        delay(DEBOUNCE); // wait for release
       }
+      delay(DEBOUNCE);
+
       switch (state) {
         case REST2:
           state = SHOWTIME;
-          if (light != OFF) light++;
           break;
         case SHOWTIME2:
-          light++;
+          NEXTLIGHT; /* switch white light to next state (OFF,WW,CW,WW+CW,OFF)*/
           egg++;
           if (egg > 9) {
             light = OFF;
@@ -312,31 +322,52 @@ void loop()
   }
 }
 
+void showtime(hms TTS, bool mix = false) { // TTS = Time To Show
 
-void showtime(hms TTS) { // TTS = Time To Show
-  fill_solid( leds, NUM_LEDS, CRGB::Black);
-  leds[TTS.m] += CRGB::DarkRed;
-  leds[NUM_LEDS - TTS.h] += CRGB::Green;
-  leds[TTS.s] += CRGB::DarkRed;
-  leds[0] += indicator;
-  //leds[NUM_LEDS - 1] += indicator; /* only 1 indicator*/
+  if (!mix) { /* unless mixing time with another effect, clear ledstrip (to dark) firtst, and mix Time display leds with only each other */
+    fill_solid( leds, NUM_LEDS, CRGB::Black);
 
-  for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, small ticks (5m).
-    leds[i] += CRGB(0, 0, 8);
-  };
-  
-  for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) { // scale / graticule, big ticks (15m)
-    leds[i] += CRGB(4, 0, 0);
-  };
+    leds[TTS.m] += CRGB::DarkRed;
+    leds[NUM_LEDS - TTS.h] += CRGB::Green;
+    leds[TTS.s] += CRGB::DarkRed;
+    leds[0] += indicator;
+    //leds[NUM_LEDS - 1] += indicator; /* only 1 indicator*/
 
-  if (light == TIME){        // when not automatically turning off:
-    leds[30] += CRGB(4,4,4); // indicate on 30 minute tick  
+    for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, small ticks (5m).
+      leds[i] += CRGB(0, 0, 8);
+    };
+
+    for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) { // scale / graticule, big ticks (15m)
+      leds[i] += CRGB(4, 0, 0);
+    };
+
+    if (light == TIME) {       // when not automatically turning off:
+      leds[30] += CRGB(4, 4, 4); // indicate on 30 minute tick
     }
+  }
+  else { /* When mixing with other effects, force time-display led's, so they are more distinctly visible (Do NOT mix/add their collors into existing) */
 
+    leds[TTS.m] = CRGB::DarkRed;
+    leds[NUM_LEDS - TTS.h] = CRGB::Green;
+    leds[TTS.s] = CRGB::DarkRed;
+    leds[0] = indicator;
+
+    for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, small ticks (5m).
+      leds[i] = CRGB(0, 0, 8);
+    };
+
+    for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) { // scale / graticule, big ticks (15m)
+      leds[i] = CRGB(4, 0, 8);
+    };
+
+    if (light == TIME) {       // when not automatically turning off:
+      leds[30] = CRGB(8, 4, 8); // indicate on 30 minute tick
+    }
+  }
 }
 
 void shownow() { // bit of a wraparound, because Show(); does not take arguments.
-  showtime(currenttime);
+  showtime(currenttime, false);
 }
 
 void showAl() {
@@ -352,6 +383,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   Show = showAdj;
 
   while ( digitalRead(SW1) == 0 || digitalRead(SW2) == 0 ) delay(DEBOUNCE);
+  delay(DEBOUNCE);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
@@ -367,6 +399,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   }
 
   while (digitalRead(SW2) == 0) delay(DEBOUNCE);
+  delay(DEBOUNCE);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
@@ -382,6 +415,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   }
 
   while (digitalRead(SW2) == 0) delay(DEBOUNCE);
+  delay(DEBOUNCE);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
@@ -397,6 +431,7 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   }
 
   while (digitalRead(SW2) == 0) delay(DEBOUNCE);
+  delay(DEBOUNCE);
 
   indicator = CRGB::Black; // Whoa. Then how to indicate that alarm is set?
   //if(AlarmSet) indicator = CRGB::Red; else indicator=CRGB::Black // something like that?
@@ -426,7 +461,15 @@ void WakeAnim() {
 
   if (waking >= NUM_LEDS * STEPS * 2) { // once the ws28 strip is lit
     light = LWAKE;        // turn on the lights
-    rainbowWithGlitter(); // and go rainbow. With glitter. That ought to wake you!
-    
+
+    /* select an animation by uncommenting ONE of below animations */
+    //rainbowWithGlitter(); // go rainbow. With glitter. That ought to wake you!
+    rainbow();            // Or just a normal rainbow
+    //confetti();         // Or just a bit of confetti
+    //sinelon();          // Or sinelon
+
+    /* optionally, uncomment below to also mix in time display */
+    showtime(currenttime, true); /* mix in time display as well (Might not combine well with all effects...)*/
+
   }
 }
