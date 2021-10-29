@@ -5,7 +5,7 @@
 */
 
 const unsigned char TIMEOUT = 25 * 5; // time-out for time display, in 1/5s , max 255 (=51s)
-const unsigned int EGGOUT = 8 * 5;    // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
+const unsigned char EGGOUT = 8 * 5;    // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
 const unsigned int DEBOUNCE = 150;    // these buttons bounce horribly long
 
 #include <FastLED.h> // use version 3.2.6
@@ -44,7 +44,7 @@ typedef struct
 hms AlarmTime, SetTime, currenttime;
 CRGB indicator = CRGB::Black;
 
-fpointer Show = sinelon; // Set this pointer to what function should be called just before a refresh in tick();
+fpointer Show = NULL; // Set this pointer to what function should be called just before a refresh in tick();
 
 enum RGBSTATE {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE, EASTERPONG} state;
 enum WSTATE {OFF, WW, CW, CWW, TIME, RST, LWAKE} light;
@@ -102,13 +102,7 @@ ISR(TIMER1_COMPA_vect) {
   gHue++;    //for various visual effects
   tick5Hz_8bit++;
 
-  // RTC.readTime(); /* aparently either cannot be called from within interrupt, or is too slow...*/
-  readRTC = true;    /* so set a flag and let main read it instead */
-
-  if ( alset && AlarmTime.h == RTC.h && AlarmTime.m == RTC.m && AlarmTime.s == RTC.s ) {
-    waking = 0; // reset wake animation
-    state = SWAKE;
-  };
+  readRTC = true;    /* set a flag and let main read RTC once */
 
   if (Show != NULL) { // so it can be set to NULL to disable auto-refresh
     Show();
@@ -121,10 +115,10 @@ void loop()
 {
 
   static unsigned int egg = 0;
-  static unsigned char timeout, eggout;
+  static unsigned char timeout, eggout, brightness_wake, pwm_cnt;
   static bool autoreel = true;
 
-  if ( (tick5Hz_8bit - eggout) > EGGOUT) {
+  if ( (unsigned char) (tick5Hz_8bit - eggout) > EGGOUT) {
     eggout = tick5Hz_8bit;
     egg = 0;
   }
@@ -134,6 +128,9 @@ void loop()
     currenttime.h = RTC.h;
     currenttime.m = RTC.m;
     currenttime.s = RTC.s;
+    if ( alset && AlarmTime.h == currenttime.h && AlarmTime.m == currenttime.m && AlarmTime.s == currenttime.s ) {
+      state = SWAKE;
+    }
     readRTC = false;
   }
 
@@ -231,7 +228,19 @@ void loop()
       light = OFF;
       break;
     case LWAKE:
-      digitalWrite(WW_LEDS, HIGH);
+      pwm_cnt++;
+      if (pwm_cnt == 255) {
+        if (brightness_wake < 255) brightness_wake++;
+        pwm_cnt = 0;
+      }
+      if (brightness_wake >= pwm_cnt) /* >= so when brightness = 255 there is DC and no PWM, so no flicker anymore */
+      {
+        digitalWrite(WW_LEDS, HIGH);
+      }
+      else
+      {
+        digitalWrite(WW_LEDS, LOW);
+      }
       break;
     default:
       light = OFF;
@@ -247,7 +256,12 @@ void loop()
 
     switch (state) {
       case SWAKE:
+        egg = 0;
         light = OFF;
+        brightness_wake = 0;
+        waking = 0; // reset wake animation
+        state = SHOWTIME;
+        break;
       case SHOWREEL:
       case EASTERPONG:
         egg = 0;
@@ -273,6 +287,8 @@ void loop()
         case SWAKE:
           egg = 0;
           light = OFF;
+          brightness_wake = 0;
+          waking = 0; // reset wake animation
           state = SHOWTIME;
           break;
         default:
@@ -313,6 +329,8 @@ void loop()
         case SWAKE:
           egg = 0;
           light = OFF;
+          brightness_wake = 0;
+          waking = 0; // reset wake animation
           state = SHOWTIME;
           break;
         default:
@@ -446,30 +464,27 @@ void WakeAnim() {
   const uint8_t STEPS = 7; // number of fade-in steps per LED. 5 steps per second (refresh at 5 Hz), so between 3 and 15 are reasonable values.
   const uint8_t BRADD = 255 / STEPS; // how much brightness is added per step?
 
-  if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
-  if (waking <= (NUM_LEDS * STEPS * 2)) waking++;
+  if (waking >= NUM_LEDS * STEPS * 2) { // once the ws28 strip is lit, no longer increment "waking" and no longer play the animation
+    light = LWAKE;        // turn on the lights
 
-  // first dim up RED one by one, then green one by one (resulting in yellow-ish), then turn on the WW ledstrip.
-  if (waking < NUM_LEDS * STEPS) {
-    leds[(waking / STEPS)] += CHSV(HUE_RED, 255, BRADD); // todo: nicer lineair dimming/brightening?
+    //rainbow();            /* Optionally show rainbow */
+    //showtime(currenttime, true); /* optionally mix in time display as well (Might not combine well with all effects...)*/
+
+    showtime(currenttime, false); // or just show time withouth mixing with animation/effect.
+
   }
   else
   {
-    leds[(waking / STEPS) - NUM_LEDS] += CHSV(HUE_GREEN, 255, BRADD); // todo: nicer lineair dimming/brightening?
-  }
+    if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
 
-
-  if (waking >= NUM_LEDS * STEPS * 2) { // once the ws28 strip is lit
-    light = LWAKE;        // turn on the lights
-
-    /* select an animation by uncommenting ONE of below animations */
-    //rainbowWithGlitter(); // go rainbow. With glitter. That ought to wake you!
-    rainbow();            // Or just a normal rainbow
-    //confetti();         // Or just a bit of confetti
-    //sinelon();          // Or sinelon
-
-    /* optionally, uncomment below to also mix in time display */
-    showtime(currenttime, true); /* mix in time display as well (Might not combine well with all effects...)*/
-
+    // first dim up RED one by one, then green one by one (resulting in yellow-ish), then turn on the WW ledstrip.
+    if (waking < (NUM_LEDS * STEPS)) {
+      leds[(waking / STEPS)] += CHSV(HUE_RED, 255, BRADD);
+    }
+    else
+    {
+      leds[(waking / STEPS) - NUM_LEDS] += CHSV(HUE_GREEN, 255, BRADD);
+    }
+    waking++;
   }
 }
