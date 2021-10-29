@@ -1,3 +1,12 @@
+/* 
+ *  Note: if on one of these animations "it just freezes" check which version of FastLED is used and look up the same-named animation in its demoreel100
+ *  check for differences there.
+ *  E.g. sinelon needs NUMLEDS-1 now instead of NUMLEDS.
+ *  
+ *  Using the 'old' version of the library might also work, but is difficult with arduino caching build files and no way to choose which version of a lib gets used.
+ *  
+ */
+
 #include <Arduino.h>
 #include <FastLED.h>
 #include "showreel.h"
@@ -46,7 +55,7 @@ void sinelon()
 {
   // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, 20);
-  int pos = beatsin16(13, 0, NUM_LEDS);
+  int pos = beatsin16(13, 0, NUM_LEDS-1);
   leds[pos] += CHSV( gHue, 255, 192);
 }
 
@@ -66,7 +75,7 @@ void juggle() {
   fadeToBlackBy( leds, NUM_LEDS, 20);
   byte dothue = 0;
   for ( int i = 0; i < 8; i++) {
-    leds[beatsin16(i + 7, 0, NUM_LEDS)] |= CHSV(dothue, 200, 255);
+    leds[beatsin16(i + 7, 0, NUM_LEDS-1)] |= CHSV(dothue, 200, 255);
     dothue += 32;
   }
 }

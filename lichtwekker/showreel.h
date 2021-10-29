@@ -6,7 +6,7 @@
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-void sinelon(), rainbow(), addGlitter(fract8), rainbowWithGlitter(), confetti(), sinelon(), juggle(), bpm(), nextPattern(); // prototypes
+void sinelon(), rainbow(), addGlitter(fract8), rainbowWithGlitter(), confetti(), juggle(), bpm(), nextPattern(); // prototypes
 typedef void (*fpointer)();
 typedef void (*SimplePatternList[])();
 
