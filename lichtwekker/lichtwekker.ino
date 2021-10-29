@@ -8,7 +8,7 @@ const unsigned char TIMEOUT = 25 * 5; // time-out for time display, in 1/5s , ma
 const unsigned int EGGOUT = 8 * 5;    // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
 const unsigned int DEBOUNCE = 150;    // these buttons bounce horribly long
 
-#include <FastLED.h>
+#include <FastLED.h> // use version 3.2.6
 FASTLED_USING_NAMESPACE
 
 #include <MD_DS3231.h>
