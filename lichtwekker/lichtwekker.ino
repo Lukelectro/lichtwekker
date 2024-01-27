@@ -312,15 +312,15 @@ void loop() {
 
 
     if (digitalRead(SW_TOP) == 0) {
-       uint16_t langingedrukt=0;
+      uint16_t langingedrukt = 0;
       while (digitalRead(SW_TOP) == 0) {
         delay(DEBOUNCE);  // wait for release
         langingedrukt++;
-        if(langingedrukt>(3000/DEBOUNCE)){
+        if (langingedrukt > (3000 / DEBOUNCE)) {
           fpointer pTemp = Show;
-          Show=NULL;
+          Show = NULL;
           timesync();
-          Show=pTemp;
+          Show = pTemp;
         }
       }
       delay(DEBOUNCE);
@@ -515,32 +515,32 @@ void WakeAnim() {
 void timesyncblink(uint8_t thesebits) {
   for (uint8_t i = 0; i < 8; i++) {
     if (thesebits & (1 << i)) {
-      leds[NUM_LEDS - 1] += CRGB::Black;
+      leds[NUM_LEDS - 1] = CRGB::Black;
       FastLED.show();
       delay(40);
-      leds[NUM_LEDS - 1] += CRGB::White;
+      leds[NUM_LEDS - 1] = CRGB::White;
       FastLED.show();
       delay(80);
     } else {
-      leds[NUM_LEDS - 1] += CRGB::White;
-      FastLED.show();
-      delay(40);
-      leds[NUM_LEDS - 1] += CRGB::Black;
+      leds[NUM_LEDS - 1] = CRGB::Black;
       FastLED.show();
       delay(80);
+      leds[NUM_LEDS - 1] = CRGB::White;
+      FastLED.show();
+      delay(40);
     }
   }
-  leds[NUM_LEDS - 1] += CRGB::Black;
+  leds[NUM_LEDS - 1] = CRGB::Black;
   FastLED.show();
 }
 
-void timesync() { // TODO: a way to trigger this with the buttons on Lichtwekker, so it can actually be tested and used to sync the watch...
+void timesync() {  // TODO: a way to trigger this with the buttons on Lichtwekker, so it can actually be tested and used to sync the watch...
   uint8_t crc, blinkh, blinkm, blinks;
   //crc uitrekenen over uren, minuten, seconden, NA de transmissietijd bij de tijd te hebben geteld!
   RTC.readTime();
   blinkh = RTC.h;
   blinkm = RTC.m;
-  blinks = RTC.s + 4; // transmission takes 3.84 s: 32 bits at 120 ms per bit. rounded up.
+  blinks = RTC.s + 4;  // transmission takes 3.84 s: 32 bits at 120 ms per bit. rounded up.
   if (blinks >= 60) {
     blinks -= 60;
     blinkm += 1;
@@ -559,12 +559,14 @@ void timesync() { // TODO: a way to trigger this with the buttons on Lichtwekker
 
   //start blink with LED ON for a long enough while to reset watch to bit 0;
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  leds[NUM_LEDS - 1] += CRGB::White;
+  FastLED.setBrightness(255);  //set brightness to max so there is no PWM dimming disturbing data transfer
+  leds[NUM_LEDS - 1] = CRGB::Blue;
   FastLED.show();
-  delay(2000);
+  delay(5000);
 
   timesyncblink(blinkh);
   timesyncblink(blinkm);
   timesyncblink(blinks);
   timesyncblink(crc);
+  FastLED.setBrightness(BRIGHTNESS);  // restore brightness to limits
 }
