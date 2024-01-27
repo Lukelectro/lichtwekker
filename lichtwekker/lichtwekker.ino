@@ -4,17 +4,18 @@
    uses DS3231MZ, do note: with battery backup time is kept on power failure, but wake-up time is reset to default 6:30 on bootup!
 */
 
-const unsigned char TIMEOUT = 25 * 5; // time-out for time display, in 1/5s , max 255 (=51s)
+const unsigned char TIMEOUT = 25 * 5;  // time-out for time display, in 1/5s , max 255 (=51s)
 const unsigned char EGGOUT = 8 * 5;    // time-out for showreel/pong entry, in 1/5s, max 255 (=51s)
-const unsigned int DEBOUNCE = 150;    // these buttons bounce horribly long
+const unsigned int DEBOUNCE = 150;     // these buttons bounce horribly long
 
-#include <FastLED.h> // use version 3.2.6
+#include <FastLED.h>  // use version 3.2.6
 FASTLED_USING_NAMESPACE
 
 #include <MD_DS3231.h>
 #include <Wire.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <util/crc16.h>
 
 #include "onedpong.h"
 #include "fire.h"
@@ -27,12 +28,12 @@ FASTLED_USING_NAMESPACE
 #define DATA_PIN 7
 #define CW_LEDS 9
 #define WW_LEDS 8
-#define LED_TYPE    WS2811
+#define LED_TYPE WS2811
 #define COLOR_ORDER GRB
-#define NUM_LEDS    60 // time display won' t work unless you are using at least 60 led's
+#define NUM_LEDS 60  // time display won' t work unless you are using at least 60 led's
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS 128 // set max brightness to limit power consumption.
+#define BRIGHTNESS 128  // set max brightness to limit power consumption.
 
 typedef struct
 {
@@ -44,21 +45,36 @@ typedef struct
 hms AlarmTime, SetTime, currenttime;
 CRGB indicator = CRGB::Black;
 
-fpointer Show = NULL; // Set this pointer to what function should be called just before a refresh in tick();
+fpointer Show = NULL;  // Set this pointer to what function should be called just before a refresh in tick();
 
-enum RGBSTATE {SHOWTIME, SHOWTIME2, SETTIME, SETAL, REST1, REST2, SHOWREEL, SWAKE, EASTERPONG} state;
-enum WSTATE {OFF, WW, CW, CWW, TIME, RST, LWAKE} light;
-#define NEXTLIGHT  do{(light<RST)?light=light+1:light=OFF;}while(0); /* Go to next light LSTATE, wrap to first LSTATE*/
+enum RGBSTATE { SHOWTIME,
+                SHOWTIME2,
+                SETTIME,
+                SETAL,
+                REST1,
+                REST2,
+                SHOWREEL,
+                SWAKE,
+                EASTERPONG } state;
+enum WSTATE { OFF,
+              WW,
+              CW,
+              CWW,
+              TIME,
+              RST,
+              LWAKE } light;
+#define NEXTLIGHT \
+  do { (light < RST) ? light = light + 1 : light = OFF; } while (0); /* Go to next light LSTATE, wrap to first LSTATE*/
 
 
 unsigned int waking = 0;
-volatile unsigned char tick5Hz_8bit; // because millis() is b0rked
+volatile unsigned char tick5Hz_8bit;  // because millis() is b0rked
 
-bool alset = true;    // alarm set or not?
-bool readRTC = false; // to indicate RTC needs to get read again
+bool alset = true;     // alarm set or not?
+bool readRTC = false;  // to indicate RTC needs to get read again
 
 void setup() {
-  delay(3000); // 3 second delay for recovery
+  delay(3000);  // 3 second delay for recovery
 
   AlarmTime.h = 6;
   AlarmTime.m = 30;
@@ -84,13 +100,13 @@ void setup() {
 
   // Destroy Arduino's timer config (Standard it is configured for PWM which I don't use, but I need a 5 Hz interrupt for screen refresh and previously for timekeeping)
   cli();
-  TCCR1A = 0; // 0, and not 1 (WGM10/8bit PWM, the standard config that gives trouble here.)
-  TCNT1 = 0;  // clear timer (to prevent Arduino restoring its unwanted PWM config on timer overflow)
+  TCCR1A = 0;  // 0, and not 1 (WGM10/8bit PWM, the standard config that gives trouble here.)
+  TCNT1 = 0;   // clear timer (to prevent Arduino restoring its unwanted PWM config on timer overflow)
   TCCR1B = 0;
   TCCR1C = 0;
 
-  OCR1A = 0x0C34; // 16Mhz / (1024 * 3125) = 5 Hz (0x0C34 = 3124, because it counts from 0-3124 like prescaler counts from 0-1023)
-  TCCR1B = 0x0D;  // clk/1024, CTC mode
+  OCR1A = 0x0C34;  // 16Mhz / (1024 * 3125) = 5 Hz (0x0C34 = 3124, because it counts from 0-3124 like prescaler counts from 0-1023)
+  TCCR1B = 0x0D;   // clk/1024, CTC mode
 
   TIMSK1 = 0x02;  // enable OC1A interrupt
   sei();
@@ -99,26 +115,24 @@ void setup() {
 ISR(TIMER1_COMPA_vect) {
   // Will be called at 5Hz
 
-  gHue++;    //for various visual effects
+  gHue++;  //for various visual effects
   tick5Hz_8bit++;
 
-  readRTC = true;    /* set a flag and let main read RTC once */
+  readRTC = true; /* set a flag and let main read RTC once */
 
-  if (Show != NULL) { // so it can be set to NULL to disable auto-refresh
+  if (Show != NULL) {  // so it can be set to NULL to disable auto-refresh
     Show();
     FastLED.show();
   }
-
 }
 
-void loop()
-{
+void loop() {
 
   static unsigned int egg = 0;
   static unsigned char timeout, eggout, brightness_wake, pwm_cnt;
   static bool autoreel = true;
 
-  if ( (unsigned char) (tick5Hz_8bit - eggout) > EGGOUT) {
+  if ((unsigned char)(tick5Hz_8bit - eggout) > EGGOUT) {
     eggout = tick5Hz_8bit;
     egg = 0;
   }
@@ -128,7 +142,7 @@ void loop()
     currenttime.h = RTC.h;
     currenttime.m = RTC.m;
     currenttime.s = RTC.s;
-    if ( alset && AlarmTime.h == currenttime.h && AlarmTime.m == currenttime.m && AlarmTime.s == currenttime.s ) {
+    if (alset && AlarmTime.h == currenttime.h && AlarmTime.m == currenttime.m && AlarmTime.s == currenttime.s) {
       state = SWAKE;
     }
     readRTC = false;
@@ -137,7 +151,7 @@ void loop()
   switch (state) {
     case REST1:
       Show = NULL;
-      fill_solid( leds, NUM_LEDS, CRGB::Black);
+      fill_solid(leds, NUM_LEDS, CRGB::Black);
       FastLED.show();
       state = REST2;
       break;
@@ -150,11 +164,12 @@ void loop()
       break;
     case SHOWTIME2:
 
-      if (alset) indicator = CRGB::DarkGoldenrod; else indicator = CRGB::Black;
+      if (alset) indicator = CRGB::DarkGoldenrod;
+      else indicator = CRGB::Black;
 
       //automatically go dark after e.g. 25s but only if light is OFF
       //(there is a way to use the time display as a light)
-      if ( (light == OFF) && ( (unsigned char) (tick5Hz_8bit - timeout) >= TIMEOUT) ) {
+      if ((light == OFF) && ((unsigned char)(tick5Hz_8bit - timeout) >= TIMEOUT)) {
         state = REST1;
       }
 
@@ -172,30 +187,31 @@ void loop()
     case SETAL:
       indicator = CRGB::OliveDrab;
       Show = showAl;
-      alset = !alset; // alarm on/off
+      alset = !alset;  // alarm on/off
       AlarmTime = AdjustTime(AlarmTime);
       state = SHOWTIME;
       break;
     case SHOWREEL:
 
-      Show = NULL;// disable automatic 5s refresh (Note: the interrupt itself keeps running! it just does not call Show when Show is a NULL pointer)
-      gPatterns[gCurrentPatternNumber](); // call the patern
-      delay(40);// 25 fps / do not starve timekeeping timer interrupt
+      Show = NULL;                         // disable automatic 5s refresh (Note: the interrupt itself keeps running! it just does not call Show when Show is a NULL pointer)
+      gPatterns[gCurrentPatternNumber]();  // call the patern
+      delay(40);                           // 25 fps / do not starve timekeeping timer interrupt
       FastLED.show();
-      gHue++;   // some effects base their hue on this, and increasing it 5Hz is barely perciptible, 25 Hz is a much more apealing effect
+      gHue++;  // some effects base their hue on this, and increasing it 5Hz is barely perciptible, 25 Hz is a much more apealing effect
 
 
 
       if (autoreel) {
-        EVERY_N_SECONDS( 10 ) nextPattern();
-      }; // change patterns periodically
+        EVERY_N_SECONDS(10)
+        nextPattern();
+      };  // change patterns periodically
 
       break;
     case SWAKE:
       Show = WakeAnim;  // more sophisticated animation before turning lights on
       break;
     case EASTERPONG:
-      Pongloop();       //play pong
+      Pongloop();  //play pong
       break;
     default:
       state = SHOWTIME;
@@ -236,9 +252,7 @@ void loop()
       if (brightness_wake >= pwm_cnt) /* >= so when brightness = 255 there is DC and no PWM, so no flicker anymore */
       {
         digitalWrite(WW_LEDS, HIGH);
-      }
-      else
-      {
+      } else {
         digitalWrite(WW_LEDS, LOW);
       }
       break;
@@ -250,7 +264,7 @@ void loop()
 
   if (digitalRead(SW1) == 0) {
     while (digitalRead(SW1) == 0) {
-      delay(DEBOUNCE); // wait for release
+      delay(DEBOUNCE);  // wait for release
     }
     delay(DEBOUNCE);
 
@@ -259,7 +273,7 @@ void loop()
         egg = 0;
         light = OFF;
         brightness_wake = 0;
-        waking = 0; // reset wake animation
+        waking = 0;  // reset wake animation
         state = SHOWTIME;
         break;
       case SHOWREEL:
@@ -271,11 +285,11 @@ void loop()
         state = SETTIME;
     }
   }
-  if (state != EASTERPONG) { // otherwise Pong cannot read the switches it needs
+  if (state != EASTERPONG) {  // otherwise Pong cannot read the switches it needs
 
     if (digitalRead(SW2) == 0) {
       while (digitalRead(SW2) == 0) {
-        delay(DEBOUNCE); // wait for release
+        delay(DEBOUNCE);  // wait for release
       }
       delay(DEBOUNCE);
 
@@ -288,7 +302,7 @@ void loop()
           egg = 0;
           light = OFF;
           brightness_wake = 0;
-          waking = 0; // reset wake animation
+          waking = 0;  // reset wake animation
           state = SHOWTIME;
           break;
         default:
@@ -299,7 +313,7 @@ void loop()
 
     if (digitalRead(SW_TOP) == 0) {
       while (digitalRead(SW_TOP) == 0) {
-        delay(DEBOUNCE); // wait for release
+        delay(DEBOUNCE);  // wait for release
       }
       delay(DEBOUNCE);
 
@@ -320,7 +334,7 @@ void loop()
           egg++;
           if (egg > 13) {
             Show = NULL;
-            fill_solid( leds, NUM_LEDS, CRGB::Black);
+            fill_solid(leds, NUM_LEDS, CRGB::Black);
             FastLED.show();
             light = OFF;
             state = EASTERPONG;
@@ -330,7 +344,7 @@ void loop()
           egg = 0;
           light = OFF;
           brightness_wake = 0;
-          waking = 0; // reset wake animation
+          waking = 0;  // reset wake animation
           state = SHOWTIME;
           break;
         default:
@@ -340,10 +354,10 @@ void loop()
   }
 }
 
-void showtime(hms TTS, bool mix = false) { // TTS = Time To Show
+void showtime(hms TTS, bool mix = false) {  // TTS = Time To Show
 
   if (!mix) { /* unless mixing time with another effect, clear ledstrip (to dark) firtst, and mix Time display leds with only each other */
-    fill_solid( leds, NUM_LEDS, CRGB::Black);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
 
     leds[TTS.m] += CRGB::DarkRed;
     leds[NUM_LEDS - TTS.h] += CRGB::Green;
@@ -351,40 +365,39 @@ void showtime(hms TTS, bool mix = false) { // TTS = Time To Show
     leds[0] += indicator;
     //leds[NUM_LEDS - 1] += indicator; /* only 1 indicator*/
 
-    for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, small ticks (5m).
+    for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) {  // scale / graticule, small ticks (5m).
       leds[i] += CRGB(0, 0, 8);
     };
 
-    for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) { // scale / graticule, big ticks (15m)
+    for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) {  // scale / graticule, big ticks (15m)
       leds[i] += CRGB(4, 0, 0);
     };
 
-    if (light == TIME) {       // when not automatically turning off:
-      leds[30] += CRGB(4, 4, 4); // indicate on 30 minute tick
+    if (light == TIME) {          // when not automatically turning off:
+      leds[30] += CRGB(4, 4, 4);  // indicate on 30 minute tick
     }
-  }
-  else { /* When mixing with other effects, force time-display led's, so they are more distinctly visible (Do NOT mix/add their collors into existing) */
+  } else { /* When mixing with other effects, force time-display led's, so they are more distinctly visible (Do NOT mix/add their collors into existing) */
 
     leds[TTS.m] = CRGB::DarkRed;
     leds[NUM_LEDS - TTS.h] = CRGB::Green;
     leds[TTS.s] = CRGB::DarkRed;
     leds[0] = indicator;
 
-    for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) { // scale / graticule, small ticks (5m).
+    for (uint8_t i = 5; i < NUM_LEDS - 1; i += 5) {  // scale / graticule, small ticks (5m).
       leds[i] = CRGB(0, 0, 8);
     };
 
-    for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) { // scale / graticule, big ticks (15m)
+    for (uint8_t i = 15; i < NUM_LEDS - 1; i += 15) {  // scale / graticule, big ticks (15m)
       leds[i] = CRGB(4, 0, 8);
     };
 
-    if (light == TIME) {       // when not automatically turning off:
-      leds[30] = CRGB(8, 4, 8); // indicate on 30 minute tick
+    if (light == TIME) {         // when not automatically turning off:
+      leds[30] = CRGB(8, 4, 8);  // indicate on 30 minute tick
     }
   }
 }
 
-void shownow() { // bit of a wraparound, because Show(); does not take arguments.
+void shownow() {  // bit of a wraparound, because Show(); does not take arguments.
   showtime(currenttime, false);
 }
 
@@ -396,20 +409,22 @@ void showAdj() {
   showtime(SetTime);
 }
 
-hms AdjustTime(hms startval) { //starts from startval and returns adjusted time, shows it on ledstrip while adjusting
+hms AdjustTime(hms startval) {  //starts from startval and returns adjusted time, shows it on ledstrip while adjusting
 
   Show = showAdj;
 
-  while ( digitalRead(SW1) == 0 || digitalRead(SW2) == 0 ) delay(DEBOUNCE);
+  while (digitalRead(SW1) == 0 || digitalRead(SW2) == 0) delay(DEBOUNCE);
   delay(DEBOUNCE);
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
-      if (startval.h < 24) startval.h++; else startval.h = 0;
+      if (startval.h < 24) startval.h++;
+      else startval.h = 0;
       delay(400);
     }
     if (digitalRead(SW_TOP) == 0) {
-      if (startval.h > 0) startval.h--; else startval.h = 23;
+      if (startval.h > 0) startval.h--;
+      else startval.h = 23;
       delay(400);
     }
 
@@ -421,11 +436,13 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
-      if (startval.m < 60) startval.m++; else startval.m = 0;
+      if (startval.m < 60) startval.m++;
+      else startval.m = 0;
       delay(400);
     }
     if (digitalRead(SW_TOP) == 0) {
-      if (startval.m > 0) startval.m--; else startval.m = 59;
+      if (startval.m > 0) startval.m--;
+      else startval.m = 59;
       delay(400);
     }
 
@@ -437,11 +454,13 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
 
   while (digitalRead(SW2) != 0) {
     if (digitalRead(SW1) == 0) {
-      if (startval.s < 60) startval.s++; else startval.s = 0;
+      if (startval.s < 60) startval.s++;
+      else startval.s = 0;
       delay(400);
     }
     if (digitalRead(SW_TOP) == 0) {
-      if (startval.s > 0) startval.s--; else startval.s = 59;
+      if (startval.s > 0) startval.s--;
+      else startval.s = 59;
       delay(400);
     }
 
@@ -451,40 +470,93 @@ hms AdjustTime(hms startval) { //starts from startval and returns adjusted time,
   while (digitalRead(SW2) == 0) delay(DEBOUNCE);
   delay(DEBOUNCE);
 
-  indicator = CRGB::Black; // Whoa. Then how to indicate that alarm is set?
+  indicator = CRGB::Black;  // Whoa. Then how to indicate that alarm is set?
   //if(AlarmSet) indicator = CRGB::Red; else indicator=CRGB::Black // something like that?
   //AlarmSet?indicator:CRGB::Red:CRGB::Black; // unreadable... But shorter
-  return startval;        //after modification
+  return startval;  //after modification
 }
 
 void WakeAnim() {
   // wake- up animation...
   // todo: improve
   // idea: fade in red leds from bottom to top slowly, and as last step, turn on WW ledstrip.
-  const uint8_t STEPS = 7; // number of fade-in steps per LED. 5 steps per second (refresh at 5 Hz), so between 3 and 15 are reasonable values.
-  const uint8_t BRADD = 255 / STEPS; // how much brightness is added per step?
+  const uint8_t STEPS = 7;            // number of fade-in steps per LED. 5 steps per second (refresh at 5 Hz), so between 3 and 15 are reasonable values.
+  const uint8_t BRADD = 255 / STEPS;  // how much brightness is added per step?
 
-  if (waking >= NUM_LEDS * STEPS * 2) { // once the ws28 strip is lit, no longer increment "waking" and no longer play the animation
-    light = LWAKE;        // turn on the lights
+  if (waking >= NUM_LEDS * STEPS * 2) {  // once the ws28 strip is lit, no longer increment "waking" and no longer play the animation
+    light = LWAKE;                       // turn on the lights
 
     //rainbow();            /* Optionally show rainbow */
     //showtime(currenttime, true); /* optionally mix in time display as well (Might not combine well with all effects...)*/
 
-    showtime(currenttime, false); // or just show time withouth mixing with animation/effect.
+    showtime(currenttime, false);  // or just show time withouth mixing with animation/effect.
 
-  }
-  else
-  {
-    if (waking == 0) fill_solid( leds, NUM_LEDS, CRGB::Black);
+  } else {
+    if (waking == 0) fill_solid(leds, NUM_LEDS, CRGB::Black);
 
     // first dim up RED one by one, then green one by one (resulting in yellow-ish), then turn on the WW ledstrip.
     if (waking < (NUM_LEDS * STEPS)) {
       leds[(waking / STEPS)] += CHSV(HUE_RED, 255, BRADD);
-    }
-    else
-    {
+    } else {
       leds[(waking / STEPS) - NUM_LEDS] += CHSV(HUE_GREEN, 255, BRADD);
     }
     waking++;
   }
+}
+
+void timesyncblink(uint8_t thesebits) {
+  for (uint8_t i = 0; i < 8; i++) {
+    if (thesebits & (1 << i)) {
+      leds[NUM_LEDS - 1] += CRGB::Black;
+      FastLED.show();
+      delay(40);
+      leds[NUM_LEDS - 1] += CRGB::White;
+      FastLED.show();
+      delay(80);
+    } else {
+      leds[NUM_LEDS - 1] += CRGB::White;
+      FastLED.show();
+      delay(40);
+      leds[NUM_LEDS - 1] += CRGB::Black;
+      FastLED.show();
+      delay(80);
+    }
+  }
+  leds[NUM_LEDS - 1] += CRGB::Black;
+  FastLED.show();
+}
+
+void timesync() {
+  uint8_t crc, blinkh, blinkm, blinks;
+  //crc uitrekenen over uren, minuten, seconden, NA de transmissietijd bij de tijd te hebben geteld!
+  RTC.readTime();
+  blinkh = RTC.h;
+  blinkm = RTC.m;
+  blinks = RTC.s + 4; // transmission takes 3.84 s: 32 bits at 120 ms per bit. rounded up.
+  if (blinks >= 60) {
+    blinks -= 60;
+    blinkm += 1;
+  }
+  if (blinkm >= 60) {
+    blinkm -= 60;
+    blinkh += 1;
+  }
+  if (blinkh >= 24) {
+    blinkh -= 24;
+  }
+
+  crc = _crc8_ccitt_update(crc, blinkh);
+  crc = _crc8_ccitt_update(crc, blinkm);
+  crc = _crc8_ccitt_update(crc, blinks);
+
+  //start blink with LED ON for a long enough while to reset watch to bit 0;
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  leds[NUM_LEDS - 1] += CRGB::White;
+  FastLED.show();
+  delay(2000);
+
+  timesyncblink(blinkh);
+  timesyncblink(blinkm);
+  timesyncblink(blinks);
+  timesyncblink(crc);
 }
