@@ -312,8 +312,16 @@ void loop() {
 
 
     if (digitalRead(SW_TOP) == 0) {
+       uint16_t langingedrukt=0;
       while (digitalRead(SW_TOP) == 0) {
         delay(DEBOUNCE);  // wait for release
+        langingedrukt++;
+        if(langingedrukt>(3000/DEBOUNCE)){
+          fpointer pTemp = Show;
+          Show=NULL;
+          timesync();
+          Show=pTemp;
+        }
       }
       delay(DEBOUNCE);
 
@@ -526,7 +534,7 @@ void timesyncblink(uint8_t thesebits) {
   FastLED.show();
 }
 
-void timesync() {
+void timesync() { // TODO: a way to trigger this with the buttons on Lichtwekker, so it can actually be tested and used to sync the watch...
   uint8_t crc, blinkh, blinkm, blinks;
   //crc uitrekenen over uren, minuten, seconden, NA de transmissietijd bij de tijd te hebben geteld!
   RTC.readTime();
